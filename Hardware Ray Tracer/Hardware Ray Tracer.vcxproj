@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -103,6 +103,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>C:\Users\fabia\Desktop\Projekte\Hardware Ray Tracer\Hardware Ray Tracer\libs\stb;C:\Users\fabia\Desktop\Projekte\Hardware Ray Tracer\Hardware Ray Tracer\libs\glm-1.0.1;C:\Users\fabia\Desktop\Projekte\Hardware Ray Tracer\Hardware Ray Tracer\libs\glfw-3.4.bin.WIN64\include;C:\VulkanSDK\1.4.328.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -126,13 +127,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Graphics\Acceleration\Scene.cpp" />
+    <ClCompile Include="Graphics\vulkan_core\Buffer.cpp" />
+    <ClCompile Include="Graphics\vulkan_core\Device.cpp" />
     <ClCompile Include="Graphics\vulkan_core\Pipeline.cpp" />
     <ClCompile Include="Graphics\Window.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Denoiser\Denoiser.h" />
-    <ClInclude Include="Graphics\Acceleration\Structures.h" />
+    <ClInclude Include="Graphics\Acceleration\ExternalCalls.h" />
+    <ClInclude Include="Graphics\Acceleration\Scene.h" />
+    <ClInclude Include="Graphics\Definitions.h" />
     <ClInclude Include="Graphics\Denoiser\Denoiser.h" />
     <ClInclude Include="Graphics\vulkan_core\Buffer.h" />
     <ClInclude Include="Graphics\vulkan_core\Device.h" />

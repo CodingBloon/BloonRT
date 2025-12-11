@@ -24,11 +24,17 @@
     <ClCompile Include="Graphics\vulkan_core\Pipeline.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
+    <ClCompile Include="Graphics\vulkan_core\Buffer.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\vulkan_core\Device.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="Graphics\Acceleration\Scene.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Denoiser\Denoiser.h">
-      <Filter>Headerdateien</Filter>
-    </ClInclude>
     <ClInclude Include="Graphics\Window.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
@@ -38,13 +44,19 @@
     <ClInclude Include="Graphics\vulkan_core\Pipeline.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
-    <ClInclude Include="Graphics\Acceleration\Structures.h">
-      <Filter>Headerdateien</Filter>
-    </ClInclude>
     <ClInclude Include="Graphics\Denoiser\Denoiser.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
     <ClInclude Include="Graphics\vulkan_core\Buffer.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Definitions.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Acceleration\Scene.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="Graphics\Acceleration\ExternalCalls.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
   </ItemGroup>
