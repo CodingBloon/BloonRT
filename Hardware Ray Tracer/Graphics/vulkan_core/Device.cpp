@@ -49,6 +49,7 @@ Core::Device::Device(Window* window) : window(window) {
 	pickPhysicalDevice();
 	createLogicalDevice();
 	createCommandPool();
+	creatRayTracingProperties();
 }
 
 Core::Device::~Device() {
@@ -200,24 +201,24 @@ void Core::Device::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t wi
 	endSingleTimeCommands(commandBuffer);
 }
 
-void Core::Device::createImageWithInfo(const VkImageCreateInfo* imageInfo, VkMemoryPropertyFlags properties, VkImage* image, VkDeviceMemory* imageMemory) {
-	if (vkCreateImage(device_, imageInfo, nullptr, image) != VK_SUCCESS) {
+void Core::Device::createImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory) {
+	if (vkCreateImage(device_, &imageInfo, nullptr, &image) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create image!");
 	}
 
 	VkMemoryRequirements memRequirements;
-	vkGetImageMemoryRequirements(device_, *image, &memRequirements);
+	vkGetImageMemoryRequirements(device_, image, &memRequirements);
 
 	VkMemoryAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
 	allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-	if (vkAllocateMemory(device_, &allocInfo, nullptr, imageMemory) != VK_SUCCESS) {
+	if (vkAllocateMemory(device_, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
 		throw std::runtime_error("failed to allocate image memory!");
 	}
 
-	if (vkBindImageMemory(device_, *image, *imageMemory, 0) != VK_SUCCESS) {
+	if (vkBindImageMemory(device_, image, imageMemory, 0) != VK_SUCCESS) {
 		throw std::runtime_error("failed to bind image memory!");
 	}
 }
@@ -340,8 +341,11 @@ void Core::Device::createLogicalDevice() {
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR accelStructureFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
 	accelStructureFeature.accelerationStructure = VK_TRUE;
 	rayTracingPipelineFeature.pNext = &accelStructureFeature;
-
 	
+	VkPhysicalDeviceSynchronization2Features synchronizationFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES_KHR };
+	synchronizationFeature.synchronization2 = VK_TRUE;
+	accelStructureFeature.pNext = &synchronizationFeature;
+
 
 	VkPhysicalDeviceFeatures2 deviceFeatures2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
 	deviceFeatures2.features = deviceFeatures;
@@ -391,9 +395,11 @@ void Core::Device::createCommandPool() {
 }
 
 void Core::Device::creatRayTracingProperties() {
+	std::cout << "creating ray tracing properties" << std::endl;
+	
 	VkPhysicalDeviceProperties2 deviceProperties2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR};
 	rtProperties.pNext = &accelProperties;
-	deviceProperties2.pNext = &accelProperties;
+	deviceProperties2.pNext = &rtProperties;
 
 	vkGetPhysicalDeviceProperties2(physicalDevice, &deviceProperties2);
 }

@@ -9,7 +9,7 @@
 #define vkGetAccelerationStructureBuildSizesKHR reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkGetAccelerationStructureBuildSizesKHR"))
 #define vkDestroyAccelerationStructureKHR reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkDestroyAccelerationStructureKHR"))
 
-namespace Core {
+/*namespace Core {
 	struct Vertex {
 		float position[3];
 	};
@@ -33,6 +33,8 @@ namespace Core {
 	public:
 		Scene(Device& device, std::vector<Mesh> meshes);
 		~Scene();
+
+		AccelerationStructure& getTlas() { return m_tlasAccel; }
 	private:
 
 		void primitiveToGeometry(Mesh& mesh, VkAccelerationStructureGeometryKHR& geometry, VkAccelerationStructureBuildRangeInfoKHR& range);
@@ -52,4 +54,4 @@ namespace Core {
 		std::vector<AccelerationStructure> m_blasAccel;
 		AccelerationStructure m_tlasAccel;
 	};
-}
+}*/

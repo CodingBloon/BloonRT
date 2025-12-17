@@ -65,10 +65,10 @@ namespace Core {
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount);
 		void createImageWithInfo(
-			const VkImageCreateInfo* imageInfo,
+			const VkImageCreateInfo& imageInfo,
 			VkMemoryPropertyFlags properties,
-			VkImage* image,
-			VkDeviceMemory* imageMemory);
+			VkImage& image,
+			VkDeviceMemory& imageMemory);
 	private:
 		void createInstance();
 		void setupDebugMessenger();
@@ -99,8 +99,8 @@ namespace Core {
 		VkSurfaceKHR surface_;
 		VkQueue graphicsQueue_;
 		VkQueue presentQueue_;
-		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties;
-		VkPhysicalDeviceAccelerationStructurePropertiesKHR accelProperties;
+		VkPhysicalDeviceRayTracingPipelinePropertiesKHR rtProperties{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
+		VkPhysicalDeviceAccelerationStructurePropertiesKHR accelProperties{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR };
 
 		const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
 		const std::vector<const char*> deviceExtensions = { 

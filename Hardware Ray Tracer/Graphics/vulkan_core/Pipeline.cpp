@@ -1,4 +1,5 @@
 #include "Pipeline.h"
+#include <fstream>
 
 /*
  * Ray Tracing Pipeline has to return depths and normals for each pixel. 
@@ -6,8 +7,9 @@
  * The denoise process uses the depth and normal information to better understand the scene geometry and improve the quality of the denoised image.
  */
 
-Core::Pipeline::Pipeline(Device& device) : device(device) {
+/*Core::Pipeline::Pipeline(Device& device, Scene& scene, SwapChain& swapChain) : device(device), scene(scene), swapChain(swapChain) {
 	createRayTracingPipelineLayout();
+	createStorageImages();
 	createDescriptorSets();
 	createRayTracingPipeline();
 }
@@ -19,10 +21,12 @@ Core::Pipeline::~Pipeline() {
 
 void Core::Pipeline::createDescriptorSets() {
 
+	const uint32_t maxFrames = swapChain.MAX_FRAMES_IN_FLIGHT;
+
 	std::vector<VkDescriptorPoolSize> poolSizes = {
-	{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1 },
-	{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1 },
-	{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
+	{ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, static_cast<uint32_t>(swapChain.MAX_FRAMES_IN_FLIGHT) },
+	{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, static_cast<uint32_t>(swapChain.MAX_FRAMES_IN_FLIGHT) },
+	{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, static_cast<uint32_t>(swapChain.MAX_FRAMES_IN_FLIGHT) },
 	}; //Descriptor pool sizes
 
 	//Create Descriptor Pool
@@ -39,26 +43,62 @@ void Core::Pipeline::createDescriptorSets() {
 	allocInfo.descriptorPool = descriptorPool;
 	allocInfo.pSetLayouts = &descriptorSetLayout;
 	allocInfo.descriptorSetCount = 1;
-	VK_CHECK_RESULT(vkAllocateDescriptorSets(device.getDevice(), &allocInfo, &descriptorSet), "failed to allocate memory for descriptor sets");
 
+	descriptorSet.resize(swapChain.MAX_FRAMES_IN_FLIGHT);
 
-	VkWriteDescriptorSetAccelerationStructureKHR accelInfo = {};
-	accelInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
-	accelInfo.accelerationStructureCount = 0; //Number of acceleration structures (currently 0)
-	accelInfo.pAccelerationStructures = nullptr; //Pointer to acceleration structure (currently null)
+	for (auto i = 0; i < swapChain.MAX_FRAMES_IN_FLIGHT; i++) {
+		vkAllocateDescriptorSets(device.getDevice(), &allocInfo, &descriptorSet[i]);
 
-	//link acceleration structure to descriptor set
-	VkWriteDescriptorSet descriptorWrite = {};
-	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	descriptorWrite.dstSet = descriptorSet;
-	descriptorWrite.dstBinding = 0; //will have index 0 in shader (binding = 0)
-	descriptorWrite.descriptorCount = 1;
-	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-	descriptorWrite.pNext = &accelInfo;
+		VkWriteDescriptorSetAccelerationStructureKHR accelInfo = {};
+		accelInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+		accelInfo.accelerationStructureCount = 1;
+		accelInfo.pAccelerationStructures = &scene.getTlas().handle;
+	
+		//link acceleration structure to descriptor set
+		VkWriteDescriptorSet descriptorWrite = {};
+		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrite.dstSet = descriptorSet[i];
+		descriptorWrite.dstBinding = 0; //will have index 0 in shader (binding = 0)
+		descriptorWrite.descriptorCount = 1;
+		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+		descriptorWrite.pNext = &accelInfo;
+
+		VkDescriptorImageInfo outputImageInfo = {};
+		outputImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		outputImageInfo.imageView = storageImages[i].imageView;
+
+		VkWriteDescriptorSet outputImageWrite = {};
+		outputImageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		outputImageWrite.dstSet = descriptorSet[i];
+		outputImageWrite.dstBinding = 1; //will have index 1 in shader (binding = 1)
+		outputImageWrite.descriptorCount = 1;
+		outputImageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		outputImageWrite.pImageInfo = &outputImageInfo;
+
+		VkDescriptorBufferInfo uniformBufferInfo = uniformBuffer.descriptorInfo();
+
+		VkWriteDescriptorSet uniformBufferWrite = {};
+		uniformBufferWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		uniformBufferWrite.dstSet = descriptorSet[i];
+		uniformBufferWrite.dstBinding = 2; //will have index 2 in shader (binding = 2)
+		uniformBufferWrite.descriptorCount = 1;
+		uniformBufferWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uniformBufferWrite.pBufferInfo = &uniformBufferInfo; //Pointer to uniform buffer info
+
+		std::vector<VkWriteDescriptorSet> writeDescriptors = {
+			descriptorWrite,
+			outputImageWrite,
+			uniformBufferWrite
+		};
+
+		vkUpdateDescriptorSets(device.getDevice(), static_cast<uint32_t>(writeDescriptors.size()), writeDescriptors.data(), 0, nullptr);
+	}
+
+	/*VK_CHECK_RESULT(vkAllocateDescriptorSets(device.getDevice(), &allocInfo, &descriptorSet), "failed to allocate memory for descriptor sets");
 
 	VkDescriptorImageInfo outputImageInfo = {};
 	outputImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-	outputImageInfo.imageView = outputImageView;
+	outputImageInfo.imageView = swapChain.getImageView(0);
 
 	VkWriteDescriptorSet outputImageWrite = {};
 	outputImageWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -66,13 +106,8 @@ void Core::Pipeline::createDescriptorSets() {
 	outputImageWrite.dstBinding = 1; //will have index 1 in shader (binding = 1)
 	outputImageWrite.descriptorCount = 1;
 	outputImageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-	outputImageInfo.imageView = outputImageView;
+	//outputImageInfo.imageView = outputImageView;
 	outputImageWrite.pImageInfo = &outputImageInfo;
-
-	/*VkDescriptorBufferInfo uniformBufferInfo = {};
-	uniformBufferInfo.buffer = uniformBuffer.getBuffer();
-	uniformBufferInfo.offset = 0; //no offset
-	uniformBufferInfo.range = VK_WHOLE_SIZE;*/
 
 	VkDescriptorBufferInfo uniformBufferInfo = uniformBuffer.descriptorInfo();
 
@@ -137,10 +172,37 @@ void Core::Pipeline::createRayTracingPipelineLayout() {
 
 void Core::Pipeline::createRayTracingPipeline() {
 	std::array<VkPipelineShaderStageCreateInfo, eShaderGroupCount> stages;
-	createShaderStages(&stages);
+	std::vector<char> raygenCode = readFile("shaders/raygen.rgen.spv");
+	std::vector<char> missCode = readFile("shaders/miss.rmiss.spv");
+	std::vector<char> closesthitCode = readFile("shaders/closesthit.rchit.spv");
+	
+	std::vector<char> code = readFile("shaders/raytracing.slang.spv");
+
+	VkShaderModuleCreateInfo shaderCode {
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = code.size(),
+		.pCode = reinterpret_cast<const uint32_t*>(code.data())
+	};
+
+	stages[eRaygen].pNext = &shaderCode;
+	stages[eRaygen].pName = "rgenMain";
+	stages[eRaygen].stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
+	stages[eMiss].pNext = &shaderCode;
+	stages[eMiss].pName = "rmissMain";
+	stages[eMiss].stage = VK_SHADER_STAGE_MISS_BIT_KHR;
+
+	stages[eClosestHit].pNext = &shaderCode;
+	stages[eClosestHit].pName = "rchitMain";
+	stages[eClosestHit].stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
 	createShaderGroups(&shader_groups);
+
+	std::cout << "Stages size: " << stages.size() << std::endl;
+	std::cout << "Group size: " << shader_groups.size() << std::endl;
+
+	//The error seems to be caused by the shader stages
 
 	VkRayTracingPipelineCreateInfoKHR creationInfo = {};
 	creationInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
@@ -148,39 +210,66 @@ void Core::Pipeline::createRayTracingPipeline() {
 	creationInfo.pStages = stages.data();
 	creationInfo.groupCount = static_cast<uint32_t>(shader_groups.size());
 	creationInfo.pGroups = shader_groups.data();
-	uint32_t temp = device.getRTProperties()->maxRayRecursionDepth;
 	creationInfo.maxPipelineRayRecursionDepth = std::max(3U, device.getRTProperties()->maxRayRecursionDepth);
 	creationInfo.layout = graphicsPipelineLayout;
 
-	PFN_vkVoidFunction address = vkGetInstanceProcAddr(*device.getInstance(), "vkCreateRayTracingPipelinesKHR");
-	//PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(address);
-	VK_CHECK_RESULT(vkCreateRayTracingPipelinesKHR(device.getDevice(), VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &creationInfo, nullptr, &graphicsPipeline), "failed to create ray tracing pipeline");
+	VK_CHECK_RESULT(vkCreateRayTracingPipelinesKHR(device.getDevice(), {}, {}, 1, &creationInfo, nullptr, &graphicsPipeline), "failed to create ray tracing pipeline");
 	createShaderBindingTable(&bindingTable, creationInfo.groupCount);
-	//bindingTable = createShaderBindingTable(device, &graphicsPipeline, creationInfo.groupCount);
-	//bindingTableBuffer = RTBindingTableBuffer(device, &graphicsPipeline, creationInfo.groupCount); //creates the shader binding table
 }
 
 void Core::Pipeline::createShaderStages(std::array<VkPipelineShaderStageCreateInfo, eShaderGroupCount>* shaderStages) {
+	std::vector<char> raygenCode = readFile("shaders/raygen.rgen.spv");
+	std::vector<char> missCode = readFile("shaders/miss.rmiss.spv");
+	std::vector<char> closesthitCode = readFile("shaders/closesthit.rchit.spv");
+
+	//Create shader modules
+	createShaderModule(raygenCode, &raygenShaderModule);
+	createShaderModule(missCode, &missShaderModule);
+	createShaderModule(closesthitCode, &closestHitShaderModule);
+
+	VkShaderModuleCreateInfo raygen{
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = raygenCode.size(),
+		.pCode = reinterpret_cast<const uint32_t*>(raygenCode.data())
+	};
+	VkShaderModuleCreateInfo miss{
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = missCode.size(),
+		.pCode = reinterpret_cast<const uint32_t*>(missCode.data())
+	};
+	VkShaderModuleCreateInfo closesthit{
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = closesthitCode.size(),
+		.pCode = reinterpret_cast<const uint32_t*>(closesthitCode.data())
+	};
+
+	VkShaderModuleCreateInfo test{
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = 0,
+		.pCode = nullptr
+	};
+
 	//Ray Generation Shader
 	(*shaderStages)[eRaygen].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	(*shaderStages)[eRaygen].pNext = nullptr; //TODO: Shader code
-	(*shaderStages)[eRaygen].pName = "rgenMain"; //Start point for shader
+	(*shaderStages)[eRaygen].pNext = &raygenShaderModule;
+	(*shaderStages)[eRaygen].pName = "main";
 	(*shaderStages)[eRaygen].stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-	(*shaderStages)[eRaygen].pNext = nullptr; //Pointer to shader code
+	(*shaderStages)[eRaygen].flags = VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT;
+
 
 	//Miss Shader
 	(*shaderStages)[eMiss].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	(*shaderStages)[eMiss].pNext = nullptr;
-	(*shaderStages)[eMiss].pName = "rmissMain"; //Start point for shader
+	(*shaderStages)[eMiss].pNext = &missShaderModule;
+	(*shaderStages)[eMiss].pName = "main";
 	(*shaderStages)[eMiss].stage = VK_SHADER_STAGE_MISS_BIT_KHR;
-	(*shaderStages)[eMiss].pNext = nullptr; //Pointer to shader code
+	(*shaderStages)[eMiss].flags = VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT;
 
 	//Closest Hit Shader
 	(*shaderStages)[eClosestHit].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	(*shaderStages)[eClosestHit].pNext = nullptr;
-	(*shaderStages)[eClosestHit].pName = "chitMain";
+	(*shaderStages)[eClosestHit].pNext = &closestHitShaderModule;
+	(*shaderStages)[eClosestHit].pName = "main";
 	(*shaderStages)[eClosestHit].stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-	(*shaderStages)[eClosestHit].pNext = nullptr; //Pointer to shader code
+	(*shaderStages)[eClosestHit].flags = VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT;
 }
 
 void Core::Pipeline::createShaderGroups(std::vector<VkRayTracingShaderGroupCreateInfoKHR>* shader_groups) {
@@ -252,3 +341,67 @@ void Core::Pipeline::createShaderBindingTable(ShaderBindingTable* bindingTable, 
 
 	*bindingTable = sbt;
 }
+
+void Core::Pipeline::createStorageImages() {
+	VkImageCreateInfo imageInfo{};
+	imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	//imageInfo.format = swapChain.getSwapChainImageFormat();
+	imageInfo.extent.height = swapChain.getSwapChainExtent().height;
+	imageInfo.extent.width = swapChain.getSwapChainExtent().width;
+	imageInfo.extent.depth = 1;
+	imageInfo.mipLevels = 1;
+	imageInfo.arrayLayers = 1;
+	imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+	imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	storageImages.resize(swapChain.MAX_FRAMES_IN_FLIGHT);
+
+	for(auto i = 0; i< swapChain.MAX_FRAMES_IN_FLIGHT; i++) {
+		device.createImageWithInfo(
+			imageInfo,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			storageImages[i].image,
+			storageImages[i].imageMemory);
+
+		VkImageViewCreateInfo viewInfo{};
+		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		viewInfo.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+		//viewInfo.format = swapChain.getSwapChainImageFormat();
+		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		viewInfo.subresourceRange.baseMipLevel = 0;
+		viewInfo.subresourceRange.levelCount = 1;
+		viewInfo.subresourceRange.baseArrayLayer = 0;
+		viewInfo.subresourceRange.layerCount = 1;
+		viewInfo.image = storageImages[i].image;
+
+		VK_CHECK_RESULT(vkCreateImageView(device.getDevice(), &viewInfo, nullptr, &storageImages[i].imageView), "failed to create texture image view!");
+		//storageImages.push_back(StorageImage(device, imageInfo, swapChain.getSwapChainExtent()));
+	}
+}
+
+std::vector<char> Core::Pipeline::readFile(const std::string& filename) {
+	std::ifstream file{ filename, std::ios::ate | std::ios::binary };
+
+	if(!file.is_open()) throw std::runtime_error("failed to open file: " + filename);
+
+	size_t size = static_cast<size_t>(file.tellg());
+	std::vector<char> buffer(size);
+	file.seekg(0);
+	file.read(buffer.data(), size);
+	file.close();
+	return buffer;
+}
+
+void Core::Pipeline::createShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule) {
+	VkShaderModuleCreateInfo info{};
+	info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	info.codeSize = code.size();
+	info.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+	VK_CHECK_RESULT(vkCreateShaderModule(device.getDevice(), &info, nullptr, shaderModule), "failed to create shader module");
+}*/

@@ -1,7 +1,7 @@
 #include "Scene.h"
 #include <span>
 
-Core::Scene::Scene(Device& device, std::vector<Mesh> meshes) : device(device), meshes(meshes) {
+/*Core::Scene::Scene(Device& device, std::vector<Mesh> meshes) : device(device), meshes(meshes) {
 	createBottomLevelAs();
 	createTopLevelAs();
 }
@@ -182,4 +182,4 @@ void Core::Scene::createAcceleration(AccelerationStructure& structure, VkAcceler
 	info.buffer = structure.buffer;
 	vkCreateAccelerationStructureKHR(device.getDevice(), &info, nullptr, &structure.handle);
 
-}
+}*/
