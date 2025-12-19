@@ -62,7 +62,7 @@ void Core::App::run() {
 		currentTime = newTime;
 
 		camera.handleInputs(window.getGLFWWindow(), delta);
-		float aspectRatio = 800 / 600;
+		float aspectRatio = swapChain->extentAspectRatio();
 		camera.setPerspectiveProjection(glm::radians(50.f), aspectRatio, 0.001f, 1000.f);
 
 		//update buffers
@@ -332,30 +332,60 @@ void Core::App::createTopLevelAS() {
 	std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
 	tlasInstances.reserve(1);
 
-	for (uint32_t i = 0; i < 1; i++) {
+	for (uint32_t i = 0; i < blasAccel.size(); i++) {
 		VkAccelerationStructureInstanceKHR asInstance{};
 		asInstance.transform = transformMatrix;
 		asInstance.instanceCustomIndex = 0;
 		asInstance.accelerationStructureReference = blasAccel[i].address;
 		asInstance.instanceShaderBindingTableRecordOffset = 0;
 		asInstance.mask = 0xFF;
+		asInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV,
 		tlasInstances.emplace_back(asInstance);
 	}
 
 	VkCommandBuffer cmd = device.beginSingleTimeCommands();
 
 	constexpr size_t instanceAlignment = 16;
-	Buffer tlasInstanceBuffer{
+
+	Buffer stagingBuffer{
 		device,
 		std::span<VkAccelerationStructureInstanceKHR const>(tlasInstances).size_bytes(),
-		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+		VK_BUFFER_USAGE_2_TRANSFER_SRC_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		instanceAlignment
 	};
 
-	tlasInstanceBuffer.map();
-	tlasInstanceBuffer.writeToBuffer(tlasInstances.data(), std::span<VkAccelerationStructureInstanceKHR const>(tlasInstances).size_bytes(), 0);
-	tlasInstanceBuffer.flush();
+	Buffer tlasInstanceBuffer{
+		device,
+		std::span<VkAccelerationStructureInstanceKHR const>(tlasInstances).size_bytes(),
+		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		instanceAlignment
+	};
+
+	stagingBuffer.map();
+	stagingBuffer.writeToBuffer(tlasInstances.data());
+
+	VkBufferCopy2 copyRegionInfo{
+		.sType = VK_STRUCTURE_TYPE_BUFFER_COPY_2,
+		.srcOffset = 0,
+		.dstOffset = 0,
+		.size = std::span<VkAccelerationStructureInstanceKHR const>(tlasInstances).size_bytes()
+	};
+
+
+
+	VkCopyBufferInfo2 copyBufferInfo{
+		.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
+		.srcBuffer = stagingBuffer.getBuffer(),
+		.dstBuffer = tlasInstanceBuffer.getBuffer(),
+		.regionCount = 1,
+		.pRegions = &copyRegionInfo
+	};
+
+	vkCmdCopyBuffer2(cmd, &copyBufferInfo);
+
+	device.endSingleTimeCommands(cmd);
 	
 	{
 		VkAccelerationStructureGeometryKHR asGeometry{};
@@ -372,7 +402,7 @@ void Core::App::createTopLevelAS() {
 			.geometry = { .instances = geometryInstances }
 		};
 
-		asBuildRangeInfo = { .primitiveCount = 1 };
+		asBuildRangeInfo = { .primitiveCount = static_cast<uint32_t>(meshes.size())};
 
 		createAccelerationStructure(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR, tlasAccel, asGeometry, asBuildRangeInfo, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
 	}
@@ -406,7 +436,7 @@ void Core::App::createAccelerationStructure(VkAccelerationStructureTypeKHR asTyp
 		device.getAccelProperties()->minAccelerationStructureScratchOffsetAlignment
 	};
 
-	device.createBuffer(asBuildSize.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &accelStructure.buffer, &accelStructure.memory);
+	device.createBuffer(asBuildSize.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &accelStructure.buffer, &accelStructure.memory);
 
 	VkAccelerationStructureCreateInfoKHR createInfo{
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR,
@@ -423,6 +453,10 @@ void Core::App::createAccelerationStructure(VkAccelerationStructureTypeKHR asTyp
 
 	VkAccelerationStructureBuildRangeInfoKHR* pBuildRangeInfo = &asBuildRangeInfo;
 	vkCmdBuildAccelerationStructuresKHR(cmd, 1, &asBuildInfo, &pBuildRangeInfo);
+
+	VkAccelerationStructureDeviceAddressInfoKHR info{ .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
+													.accelerationStructure = accelStructure.handle };
+	accelStructure.address = vkGetAccelerationStructureDeviceAddressKHR(device.getDevice(), &info);
 
 	device.endSingleTimeCommands(cmd);
 
@@ -679,21 +713,21 @@ void Core::App::rayTraceScene() {
 			.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
 		};
 
+		vkCmdPipelineBarrier(buffer, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &toGeneral);
+
 		Uniform info{};
 		info.projInverse = glm::inverse(camera.getProjection());
 		info.viewInverse = glm::inverse(camera.getView());
+		
 		float ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count() / 1e3f;
 		info.time = sin(ms) < 0 ? -sin(ms) : sin(ms);
-
-		//std::cout << ms << ";" << sin(ms) << std::endl;
 
 		uniformBuffers[currentFrameIndex]->writeToBuffer(&info);
 		uniformBuffers[currentFrameIndex]->flush();
 
 		vkCmdBindDescriptorSets(buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, graphicsPipelineLayout, 0, 1, &globalDescriptorSets[currentFrameIndex], 0, nullptr);
 		VkExtent2D size = swapChain->getSwapChainExtent();
-	
-		vkCmdPipelineBarrier(buffer, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &toGeneral);
+
 
 		vkCmdTraceRaysKHR(buffer, &raygenRegion, &missRegion, &hitRegion, &callableRegion, size.width, size.height, 1);
 
@@ -778,7 +812,7 @@ Core::Mesh::Mesh(Device& device, std::vector<Vertex> vertices, std::vector<uint3
 			device,
 			bufferSize,
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
 		);
 
 		device.copyBuffer(stagingBuffer.getBuffer(), vertexBuffer->getBuffer(), bufferSize);
@@ -799,7 +833,7 @@ Core::Mesh::Mesh(Device& device, std::vector<Vertex> vertices, std::vector<uint3
 			device,
 			sizeof(uint32_t) * indices.size(),
 			VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
 		);
 
 		device.copyBuffer(stagingBuffer.getBuffer(), indexBuffer->getBuffer(), bufferSize);

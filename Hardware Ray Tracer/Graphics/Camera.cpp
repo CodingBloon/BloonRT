@@ -68,6 +68,8 @@ glm::mat4 Core::Camera::getView() {
 }
 
 void Core::Camera::updateView() {
+	std::cout << "Position: " << position.x << ", " << position.y << ", " << position.z << std::endl;
+	
 	const float c3 = glm::cos(rotation.z);
 	const float s3 = glm::sin(rotation.z);
 	const float c2 = glm::cos(rotation.x);
