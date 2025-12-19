@@ -10,6 +10,9 @@
  * 
  * Hinweis: Der Hardware Ray Tracer erfordert eine Grafikkarte mit hardwarebeschleunigtem Ray Tracing. 
  * Ohne entsprechende Unterstützung kann es zu Startproblemen, Leistungseinbußen oder Fehlermeldungen kommen.
+ * 
+ * 
+ * ALPHA-RELASE: Eingeschränkte Funktionen (Denoiser etc.)
  */
 
 Core::App::App() : window({800, 600, "Ray Tracing :)"}), device(&window), swapChain(std::make_unique<SwapChain>(device, window.getExtent())) {
@@ -65,7 +68,7 @@ void Core::App::run() {
 
 		camera.handleInputs(window.getGLFWWindow(), delta);
 		float aspectRatio = swapChain->extentAspectRatio();
-		camera.setPerspectiveProjection(glm::radians(90.f), aspectRatio, 0.001f, 100000.f);
+		camera.setPerspectiveProjection(glm::radians(50.f), aspectRatio, 0.001f, 100000.f);
 
 		//update buffers
 
@@ -718,12 +721,22 @@ void Core::App::rayTraceScene() {
 		vkCmdPipelineBarrier(buffer, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &toGeneral);
 		vkCmdBindDescriptorSets(buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, graphicsPipelineLayout, 0, 1, &globalDescriptorSets[currentFrameIndex], 0, nullptr);
 		Uniform info{};
-		info.viewInverse = camera.getView(); //view matrix is already inversed
+		info.viewInverse = glm::inverse(glm::transpose(camera.getView())); //view matrix is already inversed
 		info.projInverse = camera.getProjection(); //projection matrix is already inversed
 
 		uniformBuffers[currentFrameIndex]->writeToBuffer(&info);
 		uniformBuffers[currentFrameIndex]->flush();
 		
+		{
+			VkMemoryBarrier barrier{
+				.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+				.srcAccessMask = 0,
+				.dstAccessMask = VK_ACCESS_UNIFORM_READ_BIT
+			};
+
+			vkCmdPipelineBarrier(buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE);
+		}
+
 		VkExtent2D size = swapChain->getSwapChainExtent();
 
 
@@ -766,23 +779,11 @@ void Core::App::freeCommandBuffers() {
 
 // -------------------- TEST FUNCTIONS --------------------
 void Core::App::generateMesh() {
-	/*std::vector<Core::Vertex> vertices = {
-		Vertex{1.0f, 1.0f, -1.0},
-		Vertex{-1.0f, 1.0f, -1.0f},
-		Vertex{0.0f, -1.0f, -1.0f},
-	};*/
-
 	std::vector<Core::Vertex> vertices = {
 		Vertex{1.0f, 1.0f, 1.0},
 		Vertex{-1.0f, 1.0f, 1.0f},
 		Vertex{0.0f, -1.0f, 1.0f},
 	};
-
-	/*std::vector<Core::Vertex> vertices = {
-		Vertex{0.0f, 1.0f, 1.0f},
-		Vertex{0.0f, -1.0f, 1.0f},
-		Vertex{0.0f, 0.0f, -1.0f},
-	};*/
 
 	std::vector<uint32_t> indices = {
 		0, 1, 2

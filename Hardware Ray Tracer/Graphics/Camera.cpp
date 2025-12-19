@@ -89,6 +89,7 @@ void Core::Camera::updateView() {
 	this->view[0][2] = w.x;
 	this->view[1][2] = w.y;
 	this->view[2][2] = w.z;
+	//this->view[3][0] = 50.f;
 	this->view[3][0] = -glm::dot(u, position);
 	this->view[3][1] = -glm::dot(v, position);
 	this->view[3][2] = -glm::dot(w, position);
