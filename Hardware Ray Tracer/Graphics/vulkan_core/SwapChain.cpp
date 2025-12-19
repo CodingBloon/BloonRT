@@ -98,7 +98,7 @@ void Core::SwapChain::init() {
 	createSwapChain();
 	createImageViews();
 	createDepthResources();
-	//createRenderPass();
+	createRenderPass();
 	createFramebuffers();
 	createSyncObjects();
 }

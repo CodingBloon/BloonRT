@@ -58,7 +58,6 @@ namespace Core {
 	struct Uniform {
 		glm::mat4 viewInverse;
 		glm::mat4 projInverse;
-		float time;
 	};
 
 	class App

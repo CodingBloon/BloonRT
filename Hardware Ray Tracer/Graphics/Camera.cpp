@@ -2,6 +2,8 @@
 #include <cassert>
 #include <limits>
 #include <glm/gtc/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/string_cast.hpp>
 
 void Core::Camera::setPerspectiveProjection(float fovy, float aspectRatio, float near, float far) {
 	assert(glm::abs(aspectRatio - std::numeric_limits<float>::epsilon()) > 0.0f);
@@ -67,9 +69,7 @@ glm::mat4 Core::Camera::getView() {
 	return view;
 }
 
-void Core::Camera::updateView() {
-	std::cout << "Position: " << position.x << ", " << position.y << ", " << position.z << std::endl;
-	
+void Core::Camera::updateView() {	
 	const float c3 = glm::cos(rotation.z);
 	const float s3 = glm::sin(rotation.z);
 	const float c2 = glm::cos(rotation.x);
@@ -79,17 +79,17 @@ void Core::Camera::updateView() {
 	const glm::vec3 u{ (c1 * c3 + s1 * s2 * s3), (c2 * s3), (c1 * s2 * s3 - c3 * s1) };
 	const glm::vec3 v{ (c3 * s1 * s2 - c1 * s3), (c2 * c3), (c1 * c3 * s2 + s1 * s3) };
 	const glm::vec3 w{ (c2 * s1), (-s2), (c1 * c2) };
-	view = glm::mat4{ 1.f };
-	view[0][0] = u.x;
-	view[1][0] = u.y;
-	view[2][0] = u.z;
-	view[0][1] = v.x;
-	view[1][1] = v.y;
-	view[2][1] = v.z;
-	view[0][2] = w.x;
-	view[1][2] = w.y;
-	view[2][2] = w.z;
-	view[3][0] = -glm::dot(u, position);
-	view[3][1] = -glm::dot(v, position);
-	view[3][2] = -glm::dot(w, position);
+	this->view = glm::mat4{ 1.f };
+	this->view[0][0] = u.x;
+	this->view[1][0] = u.y;
+	this->view[2][0] = u.z;
+	this->view[0][1] = v.x;
+	this->view[1][1] = v.y;
+	this->view[2][1] = v.z;
+	this->view[0][2] = w.x;
+	this->view[1][2] = w.y;
+	this->view[2][2] = w.z;
+	this->view[3][0] = -glm::dot(u, position);
+	this->view[3][1] = -glm::dot(v, position);
+	this->view[3][2] = -glm::dot(w, position);
 }

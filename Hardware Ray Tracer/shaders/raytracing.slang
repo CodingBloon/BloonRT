@@ -5,12 +5,11 @@
 
 #define MISS_DEPTH 1000
 //#define INFINTE 1e31F
-#define INFINITE 1e5F
+#define INFINITE 1e32F
 
 struct UniformBuffer {
     float4x4 viewInverse;
     float4x4 projInverse;
-    float time;
 };
 
 RaytracingAccelerationStructure topLevelAS;
@@ -31,12 +30,13 @@ void rgenMain() {
     const uint rayFlags = 0;
 
     const float2 clipCoords = launchID / launchSize * 2.0 - 1.0;
+
     const float4 viewCoords = mul(float4(clipCoords, 1.0, 1.0), uniformBuffer.projInverse);
 
     RayDesc ray;
     ray.Origin = mul(float4(0.0, 0.0, 0.0, 1.0), uniformBuffer.viewInverse).xyz;
     ray.Direction = mul(float4(normalize(viewCoords.xyz), 0.0), uniformBuffer.viewInverse).xyz;
-    ray.TMin = 0.0001;
+    ray.TMin = 0.001;
     ray.TMax = INFINITE;
 
     HitPayload payload;

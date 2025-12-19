@@ -38,6 +38,8 @@ Core::App::App() : window({800, 600, "Ray Tracing :)"}), device(&window), swapCh
 	std::cout << "Creating Command Buffers" << std::endl;
 	createCommandBuffers();
 	std::cout << "Command Buffers created!" << std::endl;
+
+	camera.setView(glm::vec3(0.0f, 0.0f, -2.0f), glm::vec3());
 }
 
 Core::App::~App() {
@@ -63,7 +65,7 @@ void Core::App::run() {
 
 		camera.handleInputs(window.getGLFWWindow(), delta);
 		float aspectRatio = swapChain->extentAspectRatio();
-		camera.setPerspectiveProjection(glm::radians(50.f), aspectRatio, 0.001f, 1000.f);
+		camera.setPerspectiveProjection(glm::radians(90.f), aspectRatio, 0.001f, 100000.f);
 
 		//update buffers
 
@@ -339,7 +341,7 @@ void Core::App::createTopLevelAS() {
 		asInstance.accelerationStructureReference = blasAccel[i].address;
 		asInstance.instanceShaderBindingTableRecordOffset = 0;
 		asInstance.mask = 0xFF;
-		asInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV,
+		//asInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV,
 		tlasInstances.emplace_back(asInstance);
 	}
 
@@ -714,18 +716,14 @@ void Core::App::rayTraceScene() {
 		};
 
 		vkCmdPipelineBarrier(buffer, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0, 0, VK_NULL_HANDLE, 0, VK_NULL_HANDLE, 1, &toGeneral);
-
+		vkCmdBindDescriptorSets(buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, graphicsPipelineLayout, 0, 1, &globalDescriptorSets[currentFrameIndex], 0, nullptr);
 		Uniform info{};
-		info.projInverse = glm::inverse(camera.getProjection());
-		info.viewInverse = glm::inverse(camera.getView());
-		
-		float ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count() / 1e3f;
-		info.time = sin(ms) < 0 ? -sin(ms) : sin(ms);
+		info.viewInverse = camera.getView(); //view matrix is already inversed
+		info.projInverse = camera.getProjection(); //projection matrix is already inversed
 
 		uniformBuffers[currentFrameIndex]->writeToBuffer(&info);
 		uniformBuffers[currentFrameIndex]->flush();
-
-		vkCmdBindDescriptorSets(buffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, graphicsPipelineLayout, 0, 1, &globalDescriptorSets[currentFrameIndex], 0, nullptr);
+		
 		VkExtent2D size = swapChain->getSwapChainExtent();
 
 
@@ -775,9 +773,9 @@ void Core::App::generateMesh() {
 	};*/
 
 	std::vector<Core::Vertex> vertices = {
-		Vertex{1.0f, 1.0f, -1.0},
-		Vertex{-1.0f, 1.0f, -1.0f},
-		Vertex{0.0f, -1.0f, -1.0f},
+		Vertex{1.0f, 1.0f, 1.0},
+		Vertex{-1.0f, 1.0f, 1.0f},
+		Vertex{0.0f, -1.0f, 1.0f},
 	};
 
 	/*std::vector<Core::Vertex> vertices = {
