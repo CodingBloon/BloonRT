@@ -108,13 +108,13 @@ namespace Core {
 		// -------------------- RENDER FUNCTIONS --------------------
 		void createCommandBuffers();
 		void recreateSwapChain();
+		void recreateStorageImage();
 
 		VkCommandBuffer beginFrame();
 		void endFrame();
 		void beginRenderPass(VkCommandBuffer buffer);
 		void endRenderPass(VkCommandBuffer buffer);
 		void copyImageToSwapChain(VkCommandBuffer buffer, VkImage swapChainImage, VkImage storageImage, VkExtent2D size);
-		void setImageLayout(VkCommandBuffer buffer, VkImage image, VkImageLayout layout, VkImageLayout l);
 		void rayTraceScene();
 
 		// -------------------- DESTROY FUNCTIONS --------------------
@@ -158,6 +158,7 @@ namespace Core {
 		std::vector<VkCommandBuffer> commandBuffers;
 
 		bool frameStarted;
+		bool discardImage;
 		uint32_t currentImageIndex;
 		uint32_t currentFrameIndex;
 	};

@@ -15,7 +15,7 @@ namespace Core {
 		void createWindowSurface(VkInstance instance, VkSurfaceKHR* surface);
 		VkExtent2D getExtent() { return { static_cast<uint32_t>(width), static_cast<uint32_t>(height) }; }
 		bool wasWindowResized() { return frameBufferResized; }
-		void resetWindowResizeFlag() { frameBufferResized = true; }
+		void resetWindowResizeFlag() { frameBufferResized = false; }
 		GLFWwindow* getGLFWWindow() { return window; }
 	private:
 		void initWindow();

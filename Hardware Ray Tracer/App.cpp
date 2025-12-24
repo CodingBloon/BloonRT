@@ -30,34 +30,19 @@ namespace std {
 
 Core::App::App() : window({800, 600, "Ray Tracing :)"}), device(&window), swapChain(std::make_unique<SwapChain>(device, window.getExtent())) {
 
-	/*std::cout << "Generating Mesh..." << std::endl;
-	generateMesh();
-	std::cout << "Mesh generated!" << std::endl;*/
+	loadModel("models/Cube.obj");
+	//generateMesh();
 
-	std::cout << "Loading Mesh..." << std::endl;
-	loadModel("models/Monkey.obj");
-	std::cout << "Mesh loaded!" << std::endl;
-
-	std::cout << "Creating Acceleration Structures..." << std::endl;
 	createBottomLevelAS();
 	createTopLevelAS();
-	std::cout << "Acceleration Structures created!" << std::endl;
 
 
-	std::cout << "Creating Ray Tracing Pipeline 0 of 4 Steps completed! Creating Storage Image..." << std::endl;
 	createStorageImage();
-	std::cout << "Creating Ray Tracing Pipeline 1 of 4 Steps completed! Creating Ray Tracing Descriptor Sets..." << std::endl;
 	createRayTracingDescriptorSets();
-	std::cout << "Creating Ray Tracing Pipeline 2 of 4 Steps completed! Creating Ray Tracing Pipleine Layout..." << std::endl;
 	createRayTracingPipelineLayout();
-	std::cout << "Creating Ray Tracing Pipeline 3 of 4 Steps completed! Creating Ray Tracing Pipeline..." << std::endl;
 	createRayTracingPipeline();
-	std::cout << "Creating Ray Tracing Pipeline 4 of 4 Steps completed!" << std::endl;
-	std::cout << "Ray Tracing Pipeline created!" << std::endl;
 
-	std::cout << "Creating Command Buffers" << std::endl;
 	createCommandBuffers();
-	std::cout << "Command Buffers created!" << std::endl;
 
 	camera.setView(glm::vec3(0.0f, 0.0f, -2.0f), glm::vec3());
 }
@@ -300,6 +285,8 @@ void Core::App::createShaderBindingTable(const VkRayTracingPipelineCreateInfoKHR
 void Core::App::primitiveToGeometry(const Mesh& mesh, VkAccelerationStructureGeometryKHR& geometry, VkAccelerationStructureBuildRangeInfoKHR& rangeInfo) {
 	const auto triangeCount = static_cast<uint32_t>(mesh.indices.size() / 3U);
 
+	std::cout << "Max Vertex: " << mesh.vertices.size() << std::endl;
+
 	VkAccelerationStructureGeometryTrianglesDataKHR triangles{
 		.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR,
 		.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT,
@@ -308,7 +295,6 @@ void Core::App::primitiveToGeometry(const Mesh& mesh, VkAccelerationStructureGeo
 		.maxVertex = static_cast<uint32_t>(mesh.vertices.size()) - 1,
 		.indexType = VK_INDEX_TYPE_UINT32,
 		.indexData = { .deviceAddress = mesh.indexBuffer->getAddress() },
-		.transformData = { .deviceAddress = 0 }
 	};
 
 	geometry = VkAccelerationStructureGeometryKHR{
@@ -334,8 +320,6 @@ void Core::App::createBottomLevelAS() {
 		primitiveToGeometry(meshes[i], asGeometry, asBuildRangeInfo);
 
 		createAccelerationStructure(VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR, blasAccel[i], asGeometry, asBuildRangeInfo, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR);
-	
-		std::cout << "Accel Structure: " << blasAccel[i].handle << std::endl;
 	}
 }
 
@@ -347,12 +331,12 @@ void Core::App::createTopLevelAS() {
 			0.0f, 0.0f, 1.0f, 0.0f };
 
 	std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
-	tlasInstances.reserve(1);
+	tlasInstances.reserve(blasAccel.size());
 
 	for (uint32_t i = 0; i < blasAccel.size(); i++) {
 		VkAccelerationStructureInstanceKHR asInstance{};
 		asInstance.transform = transformMatrix;
-		asInstance.instanceCustomIndex = 0;
+		asInstance.instanceCustomIndex = i;
 		asInstance.accelerationStructureReference = blasAccel[i].address;
 		asInstance.instanceShaderBindingTableRecordOffset = 0;
 		asInstance.mask = 0xFF;
@@ -442,8 +426,13 @@ void Core::App::createAccelerationStructure(VkAccelerationStructureTypeKHR asTyp
 	std::vector<uint32_t> maxPrimCount(1);
 	maxPrimCount[0] = asBuildRangeInfo.primitiveCount;
 
+	if(asType == VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR)
+		std::cout << "Primitive Count: " << maxPrimCount[0] << std::endl;
+
 	VkAccelerationStructureBuildSizesInfoKHR asBuildSize{ .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
 	vkGetAccelerationStructureBuildSizesKHR(device.getDevice(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &asBuildInfo, maxPrimCount.data(), &asBuildSize);
+
+	VkDeviceSize scratchSize = alignUp(asBuildSize.buildScratchSize, device.getAccelProperties()->minAccelerationStructureScratchOffsetAlignment);
 
 	Buffer scratchBuffer{
 		device,
@@ -555,6 +544,11 @@ void Core::App::recreateSwapChain() {
 	}
 }
 
+void Core::App::recreateStorageImage() {
+	destroyStorageImage();
+	createStorageImage();
+}
+
 // -------------------- RENDER FUNCTIONS --------------------
 
 VkCommandBuffer Core::App::beginFrame() {
@@ -562,8 +556,6 @@ VkCommandBuffer Core::App::beginFrame() {
 
 	auto result = swapChain->acquireNextImage(&currentImageIndex);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-		std::cout << "out of date" << std::endl;
-		
 		recreateSwapChain();
 		return nullptr;
 	}
@@ -591,8 +583,11 @@ void Core::App::endFrame() {
 	//submit command buffers
 	auto result = swapChain->submitCommandBuffers(&commandBuffer, &currentImageIndex);
 	//check results of the rendering and recreate the swap chain if the window has changed it's size
-	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window.wasWindowResized()) {
+		window.resetWindowResizeFlag();
+		discardImage = true;
 		recreateSwapChain();
+		recreateStorageImage();
 	} else VK_CHECK_RESULT(result, "failed to present swap chain image");
 
 	//reset frameStarted and updated frame index
@@ -645,10 +640,6 @@ void Core::App::endRenderPass(VkCommandBuffer buffer) {
 }
 
 void Core::App::copyImageToSwapChain(VkCommandBuffer buffer, VkImage swapChainImage, VkImage storageImage, VkExtent2D size) {
-
-	//this will call the next subpass
-	//vkCmdNextSubpass(buffer, {subpassInformation});
-
 	VkImageSubresourceRange ressourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
 
 	{
@@ -688,7 +679,8 @@ void Core::App::copyImageToSwapChain(VkCommandBuffer buffer, VkImage swapChainIm
 			.extent = {size.width, size.height, 1}
 	};
 
-	vkCmdCopyImage(buffer, storageImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapChainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	if(!discardImage)
+		vkCmdCopyImage(buffer, storageImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, swapChainImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
 	{
 		//transition swap chain image
@@ -745,7 +737,7 @@ void Core::App::rayTraceScene() {
 		//Update uniform buffers and push changes to the gpu
 		Uniform info{};
 		info.viewInverse = glm::inverse(glm::transpose(camera.getView()));
-		info.projInverse = camera.getProjection(); //projection matrix is already inversed
+		info.projInverse =  glm::inverse(glm::transpose(camera.getProjection())); //projection matrix is already inversed
 
 		uniformBuffers[currentFrameIndex]->writeToBuffer(&info);
 		uniformBuffers[currentFrameIndex]->flush();
@@ -760,8 +752,9 @@ void Core::App::rayTraceScene() {
 		copyImageToSwapChain(buffer, swapChain->getImage(currentImageIndex), storageImage.image, size);
 
 		endFrame();
-
 	}
+
+	discardImage = false;
 }
 
 // -------------------- DESTRUCTION FUNCTIONS --------------------
@@ -823,22 +816,21 @@ void Core::App::loadModel(std::string path) {
 		}
 	}
 
-	std::cout << "Loaded " << (indices.size() / 3) << " triangles!" << std::endl;
-	std::cout << "Loaded " << (vertices.size()) << " vertices!" << std::endl;
-
 	meshes.push_back(Mesh{ device, vertices, indices });
 }
 
 // -------------------- TEST FUNCTIONS --------------------
 void Core::App::generateMesh() {
 	std::vector<Core::Vertex> vertices = {
-		Vertex{1.0f, 1.0f, 1.0},
-		Vertex{-1.0f, 1.0f, 1.0f},
-		Vertex{0.0f, -1.0f, 1.0f},
+		Vertex{-1.f, 1.f, 1.f},
+		Vertex{1.f, 1.f, 1.f},
+		Vertex{1.f, -1.f, 1.f},
+		Vertex{-1.f, -1.f, 1.f}
 	};
 
 	std::vector<uint32_t> indices = {
-		0, 1, 2
+		0, 1, 2,
+		0, 2, 3
 	};
 
 	meshes.push_back(Mesh(device, vertices, indices));
@@ -870,7 +862,7 @@ Core::Mesh::Mesh(Device& device, std::vector<Vertex> vertices, std::vector<uint3
 	}
 
 	{
-		uint32_t bufferSize = sizeof(indices[0]) * vertices.size();
+		uint32_t bufferSize = sizeof(indices[0]) * indices.size();
 		Buffer stagingBuffer{
 			device, bufferSize,
 			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,

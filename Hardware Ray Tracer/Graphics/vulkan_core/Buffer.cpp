@@ -83,6 +83,7 @@ Core::Buffer::Buffer(
 	bufferSize{ size },
     memoryPropertyFlags{ memoryPropertyFlags } {
     alignmentSize = getAlignment(instanceSize, minOffsetAlignment);
+    bufferSize = getAlignment(bufferSize, minOffsetAlignment);
     device.createBuffer(bufferSize, usageFlags, memoryPropertyFlags, &buffer, &memory);
 }
 

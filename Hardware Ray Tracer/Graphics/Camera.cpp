@@ -9,7 +9,6 @@ void Core::Camera::setPerspectiveProjection(float fovy, float aspectRatio, float
 	assert(glm::abs(aspectRatio - std::numeric_limits<float>::epsilon()) > 0.0f);
 	const float tanHalfFovy = tan(fovy / 2.f);
 	projection = glm::mat4{ 0.0f };
-	projection = glm::mat4{ 0.0f };
 	projection[0][0] = 1.f / (aspectRatio * tanHalfFovy);
 	projection[1][1] = 1.f / (tanHalfFovy);
 	projection[2][2] = far / (far - near);
