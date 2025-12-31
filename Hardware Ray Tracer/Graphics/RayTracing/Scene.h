@@ -47,11 +47,18 @@ namespace RayTracing {
 	};
 
 	struct MeshInstance {
+		MeshInstance(glm::vec3 position, glm::vec3 rotation, uint32_t meshId);
+
 		glm::vec3 position;
 		glm::vec3 rotation;
+		uint32_t meshId;
+
+		void setPosition(glm::vec3 position);
+		void setRotation(glm::vec3 rotation);
 
 		inline glm::vec3 getPosition() { return position; }
 		inline glm::vec3 getRotation() { return rotation; }
+		inline uint32_t getMeshId() { return meshId; }
 	};
 
 	struct Material {
@@ -99,6 +106,7 @@ namespace RayTracing {
 		~Scene();
 
 		void loadModel(std::string path);
+		void createInstance(uint32_t meshId, glm::vec3 position = glm::vec3(), glm::vec3 rotation = glm::vec3());
 		void build();
 		inline AccelerationStructure getTlas() { return tlasAccel; }
 		inline std::unique_ptr<Core::Buffer>& getSceneInfoBuffer() { return sceneInfoBuffer; }
@@ -127,6 +135,7 @@ namespace RayTracing {
 		Core::Device& device;
 
 		std::vector<Mesh> meshes;
+		std::vector<MeshInstance> instances;
 		std::vector<AccelerationStructure> blasAccel;
 		AccelerationStructure tlasAccel;
 

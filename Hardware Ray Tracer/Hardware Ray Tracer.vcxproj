@@ -145,6 +145,7 @@
     <ClInclude Include="Graphics\Definitions.h" />
     <ClInclude Include="Graphics\Denoiser\Denoiser.h" />
     <ClInclude Include="Graphics\RayTracing\Debugging.h" />
+    <ClInclude Include="Graphics\RayTracing\MeshInstance.h" />
     <ClInclude Include="Graphics\RayTracing\RTPipeline.h" />
     <ClInclude Include="Graphics\RayTracing\RTApp.h" />
     <ClInclude Include="Graphics\RayTracing\Scene.h" />

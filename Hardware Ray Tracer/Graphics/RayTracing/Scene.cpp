@@ -269,10 +269,11 @@ void RayTracing::Scene::createAccelerationStructure(VkAccelerationStructureTypeK
 }
 
 void RayTracing::Scene::createMaterials() {
+	float roughness = 1.f;
 	Material material{
 		.color = {0.f, 1.f, 0.f},
 		.metallic = 0.f,
-		.roughness = 1.f
+		.roughness = roughness == 0.0f ? ROUGHNESS_ZERO : roughness
 	};
 
 	materialBuffer = std::make_unique<Core::Buffer>(

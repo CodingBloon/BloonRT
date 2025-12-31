@@ -124,13 +124,9 @@ float3 pbrMaterial(float3 albedo, float metallic, float roughness, float3 N, flo
 void rgenMain() {
     float2 launchID = (float2)DispatchRaysIndex().xy;
     float2 launchSize = (float2)DispatchRaysDimensions().xy;
-
-    
-
     const uint rayFlags = 0;
 
     const float2 clipCoords = launchID / launchSize * 2.0 - 1.0;
-
     const float4 viewCoords = mul(float4(clipCoords, 1.0, 1.0), uniformBuffer.projInverse);
 
     RayDesc ray;
