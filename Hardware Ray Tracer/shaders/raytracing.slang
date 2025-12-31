@@ -1,12 +1,9 @@
-#define PI 3.1415926535897F
-#define TWO_PI 6.2831853071795F
-#define PI_DIV_2 1.5707963267948F
-#define PI_DIV_4 0.7853981633974F
-
 #define MISS_DEPTH 1000
 #define INFINITE 1e32F
 #define POINT_LIGHT 0
 #define DIR_LIGHT 1
+
+#include "pbr.slang"
 
 struct UniformBuffer {
     float4x4 viewInverse;
@@ -127,13 +124,9 @@ float3 pbrMaterial(float3 albedo, float metallic, float roughness, float3 N, flo
 void rgenMain() {
     float2 launchID = (float2)DispatchRaysIndex().xy;
     float2 launchSize = (float2)DispatchRaysDimensions().xy;
-
-    
-
     const uint rayFlags = 0;
 
     const float2 clipCoords = launchID / launchSize * 2.0 - 1.0;
-
     const float4 viewCoords = mul(float4(clipCoords, 1.0, 1.0), uniformBuffer.projInverse);
 
     RayDesc ray;
@@ -188,12 +181,14 @@ void rchitMain(inout HitPayload payload, in BuiltInTriangleIntersectionAttribute
 
     float shadowFactor = testShadow(worldPos, worldNormal, light.direction, false);
 
-    float3 color = pbrMaterial(albedo, metallic, roughness, N, V, L);
+    float3 color = pbrMetallicRoughness(albedo, metallic, roughness, N, V, L);
+    //float3 color = albedo;
+
 
     color *= light.color * light.intensity * shadowFactor;
 
-    // payload.color = color;
-    payload.color = float3(1.0, 1.0, 1.0);
+    payload.color = color;
+    //payload.color = float3(1.0, 1.0, 1.0);
 }
 
 [shader("miss")]

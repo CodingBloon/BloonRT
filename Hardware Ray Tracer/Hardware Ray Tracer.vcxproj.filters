@@ -89,5 +89,8 @@
     <ClInclude Include="Graphics\RayTracing\RTPipeline.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="Graphics\RayTracing\MeshInstance.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
