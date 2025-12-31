@@ -6,12 +6,15 @@
 #include "../vulkan_core/Buffer.h"
 #include "../tinyobj/tiny_obj_loader.h"
 #include <unordered_map>
+#include <glm/glm.hpp>
 
 #define vkCmdBuildAccelerationStructuresKHR reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkCmdBuildAccelerationStructuresKHR"))
 #define vkCreateAccelerationStructureKHR reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkCreateAccelerationStructureKHR"))
 #define vkGetAccelerationStructureBuildSizesKHR reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkGetAccelerationStructureBuildSizesKHR"))
 #define vkDestroyAccelerationStructureKHR reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkDestroyAccelerationStructureKHR"))
 #define vkGetAccelerationStructureDeviceAddressKHR reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(device.getDevice(), "vkGetAccelerationStructureDeviceAddressKHR"))
+
+#define ROUGHNESS_ZERO 0.0001f
 
 template <typename T, typename... Rest>
 void hashCombine(std::size_t& seed, const T& v, const Rest&... rest) {
@@ -41,6 +44,14 @@ namespace RayTracing {
 
 		std::unique_ptr<Core::Buffer> vertexBuffer;
 		std::unique_ptr<Core::Buffer> indexBuffer;
+	};
+
+	struct MeshInstance {
+		glm::vec3 position;
+		glm::vec3 rotation;
+
+		inline glm::vec3 getPosition() { return position; }
+		inline glm::vec3 getRotation() { return rotation; }
 	};
 
 	struct Material {

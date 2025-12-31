@@ -29,6 +29,11 @@ namespace RayTracing {
 		Pipeline(Core::Device& device, VkFormat format, VkExtent2D, AccelerationStructure topLevelAS, std::unique_ptr<Core::Buffer>& sceneInfoBuffer);
 		~Pipeline();
 
+		Pipeline(const Pipeline&) = delete;
+		Pipeline operator=(Pipeline&) = delete;
+		Pipeline(const Pipeline&&) = delete;
+		Pipeline operator=(Pipeline&&) = delete;
+
 		void bind(VkCommandBuffer buffer);
 		void bindDescriptorSets(VkCommandBuffer buffer, uint32_t index);
 		void traceRays(VkCommandBuffer buffer, uint32_t width, uint32_t height, uint32_t depth);
