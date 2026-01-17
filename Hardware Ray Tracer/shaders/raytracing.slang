@@ -1,8 +1,8 @@
 #include "pbr.slang"
-#include "random.slang"
 #include "objects.slang"
 #include "light.slang"
 #include "constants.slang"
+#include "disney_bsdf.slang"
 
 struct UniformBuffer {
     float4x4 viewInverse;
@@ -46,40 +46,6 @@ struct ShadowPayload {
     int depth;
 }
 
-__generic<T : IFloat> T getAttribute(uint64_t bufferAddress, uint64_t offset, uint64_t byteStride, uint attributeIndex) {
-    T *ptr = (T *)(bufferAddress + offset + attributeIndex * byteStride);
-    return ptr[0];
-}
-
-int3 getTriangleIndices(uint64_t bufferAddress, int primitiveID) {
-    // Indices are always 32-bit format
-    int3 *indices = (int3 *)(bufferAddress);
-    return indices[primitiveID];
-}
-
-uint32_t getMaterialIndex(uint64_t bufferAddress, uint64_t byteStride, uint instance) {
-    uint32_t* ptr = (uint32_t*)(bufferAddress + byteStride * instance + 16);
-    return ptr[0];
-}
-
-__generic<T : IFloat> T getTriangleAttribute(uint64_t bufferAddress, uint64_t offset, uint64_t byteStride, uint3 attributeIndex, float3 barycentrics) {
-
-    T attr0 = getAttribute<T>(bufferAddress, offset, byteStride, attributeIndex.x);
-    T attr1 = getAttribute<T>(bufferAddress, offset, byteStride, attributeIndex.y);
-    T attr2 = getAttribute<T>(bufferAddress, offset, byteStride, attributeIndex.z);
-
-    return T(barycentrics.x) * attr0 + T(barycentrics.y) * attr1 + T(barycentrics.z) * attr2;
-}
-
-uint64_t getIndexBuffer(uint64_t id, uint64_t bufferAddress, uint64_t byteStride) {
-    uint64_t *ptr = (uint64_t *)(bufferAddress + id * byteStride + 8); //first 8 bytes are the vertex buffer address
-    return ptr[0];
-}
-uint64_t getVertexBuffer(uint64_t id, uint64_t bufferAddress, uint64_t byteStride) {
-    uint64_t *ptr = (uint64_t *)(bufferAddress + id * byteStride);
-    return ptr[0];
-}
-
 /*
  * Checks if a point can "see" the light and therefore should receive direct illumination
  * TODO: Add multiple shadow rays to better estimate the shadow factor
@@ -100,32 +66,20 @@ float testShadow(float3 worldPos, float3 worldNormal, float3 lightDirection, boo
     return shadowPayload.depth != MISS_DEPTH ? 0.0 : 1.0;
 }
 
-/*
- * Currently light calculations only accept one light source
- * Later a light source will cast multiple rays to better determine the illumination of a pixel
- */
-#define MAX_LIGHT_SAMPLES 2 //number of lights the program samples per sample per pixel (more light samples result in better lightning quality but increases the computational cost)
 float3 calculateColor(Material mat, float3 normal, float3 view, float3 worldPos) {
-    uint maxIndex = (uint)(sceneInfo.numLights - 1U);
-    uint seed = uniformBuffer.frame;
-    uint numLights = (uint) sceneInfo.numLights;
     float3 accumulatedColor = float3(0, 0, 0);
-    float lightFactor = 1 / sceneInfo.numLights;
+    uint numLights = (uint) sceneInfo.numLights;
     
-    
-    /*
-     * Sample random light sources
-     * This will later be replaced with an more advanced algorithm like light bounding volume hierarchy or ReSTIR
-     */
+    /* Sample every light sources
+     * This will later be replaced with an more advanced algorithm like light bounding volume hierarchy or ReSTIR */
     for (uint i = 0; i < numLights; i++) {
-        uint randomIndex = srand(seed + i, maxIndex); //calculate random light index
         Light light = processLight(sceneInfo.lightBuffer, sceneInfo.lightByteStride, i, worldPos); // get light information
         float3 L = normalize(light.direction);
         float3 color = pbrMetallicRoughness(mat.color, mat.metallic, mat.roughness, normal, view, L);
         float shadowFactor = testShadow(worldPos, normal, light.direction, false);
         accumulatedColor += color * light.color * light.intensity * shadowFactor;
     }
-
+    
     return accumulatedColor;
 }
 
@@ -153,11 +107,17 @@ void rgenMain() {
     payload.weight = 1;
     payload.depth = 0;
 
-    /*
-     * The program uses hardware recursion to calculate indirect illumination and reflections
-     */
-    TraceRay(topLevelAS, rayFlags, 0xff, 0, 0, 0, ray, payload);
-    float3 color = payload.color;
+    float3 accumulatedColor = float3(0, 0, 0);
+    while (payload.weight < uniformBuffer.depthMax && payload.weight > 0.01) {
+        float prevWeight = payload.weight;
+        TraceRay(topLevelAS, rayFlags, 0xff, 0, 0, 0, ray, payload);
+        accumulatedColor += payload.color * prevWeight;
+
+        ray.Origin = payload.rayOrigin;
+        ray.Direction = payload.rayDirection;
+    }
+
+    float3 color = accumulatedColor;
     outImage[int2(launchID)] = float4(color, 1.0);
 }
 
@@ -169,23 +129,17 @@ void rchitMain(inout HitPayload payload, in BuiltInTriangleIntersectionAttribute
     uint meshID = InstanceID();
     uint triID = PrimitiveIndex();
 
-    uint64_t indexBuffer = getIndexBuffer(meshID, sceneInfo.instanceBuffer, sceneInfo.instanceByteStride);
-    uint64_t vertexBuffer = getVertexBuffer(meshID, sceneInfo.instanceBuffer, sceneInfo.instanceByteStride);
+    uint64_t indexBuffer = getIndexBufferAddress(meshID, sceneInfo.instanceBuffer, sceneInfo.instanceByteStride);
+    uint64_t vertexBuffer = getVertexBufferAddress(meshID, sceneInfo.instanceBuffer, sceneInfo.instanceByteStride);
 
     int materialIndex = getMaterialIndex(sceneInfo.instanceBuffer, sceneInfo.instanceByteStride, instanceID);
-    int3 indices = getTriangleIndices(indexBuffer, triID);
-    float3 pos;
-    float3 normal;
-    float2 uvWorld;
+    int3 indices = getIndices(indexBuffer, triID);
 
-    getTriangleInformation(vertexBuffer, sceneInfo.vertexByteStride, indices, barycentrics, pos, normal, uvWorld);
+    Triangle tri = getTriangleInformation(vertexBuffer, sceneInfo.vertexByteStride, indices, barycentrics);
+    float3 worldPos = float3(mul(float4(tri.pos, 1.0), ObjectToWorld4x3()));
+    float3 worldNormal = normalize(mul(WorldToObject4x3(), tri.normal).xyz);
 
-    float3 worldPos = float3(mul(float4(pos, 1.0), ObjectToWorld4x3()));
-    float3 worldNormal = normalize(mul(WorldToObject4x3(), normal).xyz);
-
-    //load material properties
-    Material material;
-    material = getMaterialProperties(sceneInfo.materialBuffer, sceneInfo.materialByteStride, materialIndex);
+    Material material = getMaterial(sceneInfo.materialBuffer, sceneInfo.materialByteStride, sceneInfo.instanceBuffer, sceneInfo.instanceByteStride, instanceID);
 
     float3 N = normalize(worldNormal);
     float3 V = -WorldRayDirection();
@@ -193,7 +147,15 @@ void rchitMain(inout HitPayload payload, in BuiltInTriangleIntersectionAttribute
     if (dot(N, V) < 0.0)
         N = -N;
 
-    payload.color = calculateColor(material, N, V, worldPos);
+    float pdf;
+    float2 random;
+    float3 color = calculateColor(material, N, V, worldPos);
+    float3 rayDir = sampleHemisphere(0, pdf);
+
+    payload.weight *= material.metallic;
+    payload.rayOrigin = worldPos + N * 0.001;
+    payload.rayDirection = rayDir;
+    payload.color = color;
 }
 
 [shader("miss")]

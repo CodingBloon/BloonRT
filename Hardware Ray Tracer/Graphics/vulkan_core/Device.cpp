@@ -530,7 +530,7 @@ void Core::Device::hasGflwRequiredInstanceExtensions() {
 		available.insert(extension.extensionName);
 	}
 
-	std::cout << "required extensions:" << std::endl;
+//	std::cout << "required extensions:" << std::endl;
 	auto requiredExtensions = getRequiredExtensions();
 	for (const auto& required : requiredExtensions) {
 //#ifdef _DEBUG

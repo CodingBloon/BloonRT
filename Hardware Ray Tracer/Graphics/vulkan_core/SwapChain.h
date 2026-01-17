@@ -33,6 +33,7 @@ namespace Core {
 		VkFormat findDepthFormat();
 
 		VkResult acquireNextImage(uint32_t* imageIndex);
+		static void validateResult(VkResult result, VkQueue queue, uint32_t frameIndex);
 		VkResult submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex);
 
 		bool compareSwapFormats(const SwapChain& swapchain) const {

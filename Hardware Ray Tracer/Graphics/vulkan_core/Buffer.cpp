@@ -1,69 +1,6 @@
 #include "Buffer.h"
 #include <cassert>
 
-/*Core::Buffer::Buffer(Device* device, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkDeviceSize minOffsetAlignment) : bufferSize(size), device(device) {
-	device->createBuffer(size, usage, properties, &buffer, &memory);
-	gpuAddress = device->getBufferDeviceAddress(buffer);
-}
-
-Core::Buffer::~Buffer() {
-	unmap();
-	vkDestroyBuffer(*device->getDevice(), buffer, nullptr);
-	vkFreeMemory(*device->getDevice(), memory, nullptr);
-}
-
-void Core::Buffer::writeToBuffer(void* data, VkDeviceSize size, VkDeviceSize offset) {
-	assert(mapped && "Cannot write to unmapped buffer memory.");
-	
-	if (size == VK_WHOLE_SIZE) {
-		memcpy(mapped, data, bufferSize);
-	}
-	else {
-		char* memOffset = (char*)mapped;
-		memOffset += offset;
-		memcpy(memOffset, data, size);
-	}
-
-}
-
-VkDescriptorBufferInfo* Core::Buffer::getDescriptorInfo(VkDeviceSize size, VkDeviceSize offset) {
-	return new VkDescriptorBufferInfo{
-		buffer,
-		offset,
-		size
-	};
-}
-
-VkResult Core::Buffer::flush(VkDeviceSize size, VkDeviceSize offset) {
-	VkMappedMemoryRange mappedRange = {};
-	mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-	mappedRange.memory = memory;
-	mappedRange.offset = offset;
-	mappedRange.size = size;
-	return vkFlushMappedMemoryRanges(*device->getDevice(), 1, &mappedRange);
-}
-
-VkResult Core::Buffer::invalidate(VkDeviceSize size, VkDeviceSize offset) {
-	VkMappedMemoryRange mappedRange = {};
-	mappedRange.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-	mappedRange.memory = memory;
-	mappedRange.offset = offset;
-	mappedRange.size = size;
-	return vkInvalidateMappedMemoryRanges(*device->getDevice(), 1, &mappedRange);
-}
-
-void Core::Buffer::map() {
-	assert(mapped && memory && "Cannot map buffer memory: Memory is already mapped or not allocated.");
-	VK_CHECK_RESULT(vkMapMemory(*device->getDevice(), memory, 0, bufferSize, 0, &mapped), "failed to map memory");
-}
-
-void Core::Buffer::unmap() {
-	if (!mapped)
-		return;
-	vkUnmapMemory(*device->getDevice(), memory);
-	mapped = nullptr;
-}*/
-
 VkDeviceSize Core::Buffer::getAlignment(VkDeviceSize instanceSize, VkDeviceSize minOffsetAlignment) {
     if (minOffsetAlignment > 0) {
         return (instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1);

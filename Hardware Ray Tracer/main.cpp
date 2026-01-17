@@ -7,6 +7,7 @@ int main() {
 
 		app.run();
 	} catch (const std::runtime_error& e) {
+		std::cout << "[ERROR] Runtime: " << e.what() << std::endl;
 		system("pause");
 		return EXIT_FAILURE;
 	}

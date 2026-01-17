@@ -1,8 +1,8 @@
 #include "RTApp.h"
 
-RayTracing::RTApp::RTApp() : window({800, 600, "Ray Tracer | DLSS 4", false}), device(&window), scene(device) {
+RayTracing::RTApp::RTApp() : window({800, 600, "Bloon RT Engine v0.1.2 | DLSS 4", false}), device(&window), scene(device) {
 	scene.loadModel("models/Plane.obj");
-	
+
 	scene.createMaterial(glm::vec3(1.f, 1.f, 1.f));
 	scene.createMaterial(glm::vec3(0.f, 0.f, 1.f));
 	
@@ -221,6 +221,8 @@ void RayTracing::RTApp::recreateSwapChain() {
 		glfwWaitEvents();
 	}
 
+	vkDeviceWaitIdle(device.getDevice());
+
 	if (swapChain == nullptr)
 		swapChain = std::make_unique<Core::SwapChain>(device, window.getExtent());
 	else {
@@ -229,18 +231,4 @@ void RayTracing::RTApp::recreateSwapChain() {
 
 		if (!swapChain->compareSwapFormats(*oldSwapChain.get())) throw std::runtime_error("Swap chain format changed!");
 	}
-}
-
-void RayTracing::RTApp::recreateRenderResources() {
-	auto extent = window.getExtent();
-
-	while (extent.width == 0 || extent.height == 0) {
-		extent = window.getExtent();
-		glfwWaitEvents();
-	}
-
-	vkDeviceWaitIdle(device.getDevice());
-
-	recreateSwapChain();
-	rtPipeline->rebuildRenderOutput(swapChain->getSwapChainImageFormat(), swapChain->getSwapChainExtent());
 }

@@ -2,6 +2,8 @@
 #define PI_2 6.2831853071795F
 #define N_1_PI 0.3183098861837F
 
+#include "random.slang"
+
 struct BsdfMaterial {
     float3 baseColor = float3(1.0f, 1.0f, 1.0f);
     float2 roughness = float2(1.0f, 1.0f);
@@ -20,6 +22,12 @@ struct BsdfEvaluateData {
     float3 xi;
     float3 bsdf_diffuse;
     float3 bsdf_glossy;
+    float pdf;
+}
+
+struct SurfaceInteraction {
+    float3 color;
+    float3 rayDir;
     float pdf;
 }
 
@@ -141,3 +149,107 @@ float3 pbrMetallicRoughness(float3 albedo, float metallic, float roughness, floa
 
     return data.bsdf_diffuse + data.bsdf_glossy;
 }
+
+SurfaceInteraction bsdfEvaluateAndSample(inout BsdfEvaluateData data, BsdfMaterial material) {
+    float3 H = normalize(data.k1 + data.k2);
+    float NdotV = clampedDot(material.N, data.k1);
+    float NdotL = clampedDot(material.N, data.k2);
+    float VdotH = clampedDot(data.k1, H);
+    float NdotH = clampedDot(material.N, H);
+}
+
+float sampleCosineHemisphere() {
+
+}
+
+SurfaceInteraction pbrSurfaceInteraction(float3 albedo, float metallic, float roughness, float N, float V, float L) {
+    SurfaceInteraction interaction;
+    BsdfEvaluateData data;
+    data.k1 = V;
+    data.k2 = L;
+    data.xi = float(0.0f);
+
+    BsdfMaterial mat;
+    mat.baseColor = albedo;
+    mat.metallic = metallic;
+    mat.roughness = float2(roughness, roughness);
+    mat.N = N;
+    orthonormalBasis(mat.N, mat.T, mat.B);
+    bsdfEvaluateSimple(data, mat);
+
+    return bsdfEvaluateAndSample(data, mat);
+}
+
+//calculates the direction of the indirect lightning ray
+float3 sampleHemisphere(uint seed, out float pdf) {
+    float uSelect = rand(seed);
+    float2 uSample = float2(rand(seed), rand(seed));
+
+    float specularProb;
+    float diffuseProb = 1.0 - specularProb;
+
+    float3 rayDir;
+
+    if (uSelect < specularProb || specularProb >= 1.0) {
+    } else {
+        rayDir = sampleCosineHemisphere();
+
+        float3 brdf;
+        float pdf;
+
+
+    }
+
+    pdf = 1.0f;
+    return float3(0, 0, 0);
+}
+
+/*
+    struct SurfaceInteraction {
+    vec3 diffuseColor;
+    vec3 specularColor;
+    float roughness;
+    float metallic;
+};
+
+vec3 sampleBSDF(SurfaceInteraction surface, vec3 viewDir, vec3 normal, inout uint seed) {
+    // 1. Generate random numbers
+    float uSelect = rand(seed); // Used to choose the lobe
+    vec2 uSample = vec2(rand(seed), rand(seed)); // Used for direction math
+
+    // 2. Calculate Lobe Weights (Simplistic approach)
+    // In a real PBR shader, you'd use Fresnel (F) here.
+    float specProb = estimateSpecularProbability(surface, viewDir, normal);
+    float diffuseProb = 1.0 - specProb;
+
+    vec3 rayDir;
+    vec3 throughput;
+
+    // 3. Stochastic Choice
+    if (uSelect < specProb) {
+        // --- SPECULAR LOBE ---
+        // Use GGX Importance Sampling
+        rayDir = sampleGGX(uSample, surface.roughness, normal, viewDir);
+
+        // Calculate the BSDF value and the PDF for this specific direction
+        vec3 brdf = evalGGX(rayDir, viewDir, normal, surface);
+        float pdf = pdfGGX(rayDir, viewDir, normal, surface.roughness) * specProb;
+
+        throughput = brdf / pdf;
+    }
+    else {
+        // --- DIFFUSE LOBE ---
+        // Use Cosine-Weighted Hemisphere Sampling
+        rayDir = sampleCosineHemisphere(uSample, normal);
+
+        // Calculate the BSDF value and PDF
+        vec3 brdf = (surface.diffuseColor / PI) * dot(normal, rayDir);
+        float pdf = (dot(normal, rayDir) / PI) * diffuseProb;
+
+        throughput = brdf / pdf;
+    }
+
+    // Return the color contribution and the new direction for the next bounce
+    return lightFromDirection(rayDir) * throughput;
+}
+*/

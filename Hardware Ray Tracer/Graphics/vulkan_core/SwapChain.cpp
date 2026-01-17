@@ -59,6 +59,36 @@ VkResult Core::SwapChain::acquireNextImage(uint32_t* imageIndex) {
 	return result;
 }
 
+void Core::SwapChain::validateResult(VkResult result, VkQueue queue, uint32_t frameIndex) {
+	if (result == VK_SUCCESS)
+		return;
+
+	switch (result)
+	{
+		break;
+	case VK_ERROR_DEVICE_LOST:
+
+		/*std::cout << "[ERROR] Renderer: Render System Failure"
+			<< "Status: GPU Device Lost" << std::endl
+			<< "Source: vkQueueSubmit" << std::endl
+			<< "Frame: " << frameIndex << std::endl
+			<< "Details" << std::endl
+			<< "Advice: Lauch app with enabled GOU-Assisted Validation" << std::endl;*/
+
+		std::cout	<< "[ERROR] Renderer: GPU Device Lost (VK_ERROR_DEVICE_LOST)" << std::endl
+					<< "[ERROR] Renderer: The OS or driver has reset the graphics device." << std::endl
+					<< "[ERROR] Renderer: This usually indicates a GPU hang, a driver crash or physical removal of the hardware" << std::endl
+					<< "[ERROR] Renderer: The Render System is no longer functional!" << std::endl;
+
+		throw std::runtime_error("GPU Device Lost (VK_ERROR_DEVICE_LOST)");
+		break;
+	default:
+		std::cout << "[ERROR] Renderer: Failed to submit command buffers!" << std::endl;
+		throw std::runtime_error("Failed to submit command buffers!");
+		break;
+	}
+}
+
 VkResult Core::SwapChain::submitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex) {
 	if (imagesInFlight[*imageIndex] != VK_NULL_HANDLE) {
 		vkWaitForFences(device.getDevice(), 1, &imagesInFlight[*imageIndex], VK_TRUE, std::numeric_limits<uint64_t>::max());
@@ -75,12 +105,18 @@ VkResult Core::SwapChain::submitCommandBuffers(const VkCommandBuffer* buffers, u
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = &renderFinishedSemaphores[currentFrame];
 	vkResetFences(device.getDevice(), 1, &inFlightFences[currentFrame]);
-	VK_CHECK_RESULT(vkQueueSubmit(
+	validateResult(vkQueueSubmit(
+		device.graphicsQueue(),
+		1,
+		&submitInfo,
+		inFlightFences[currentFrame]
+	), device.graphicsQueue(), *imageIndex);
+	/*VK_CHECK_RESULT(vkQueueSubmit(
 		device.graphicsQueue(),
 		1,
 		&submitInfo,
 		inFlightFences[currentFrame]),
-		"failed to submit draw command buffer");
+		"failed to submit draw command buffer");*/
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;

@@ -79,11 +79,9 @@ void RayTracing::Scene::createInstance(uint32_t meshId, uint32_t materialId, glm
 
 void RayTracing::Scene::createMaterial(glm::vec3 color, float metallic, float roughness, glm::vec3 emissiveColor, float emissionStrength) {
 	materials.push_back(Material{
-		{color.x, color.y, color.z},
-		metallic,
-		roughness,
-		{emissiveColor.x, emissiveColor.y, emissiveColor.z},
-		emissionStrength
+		.color = {color.x, color.y, color.z},
+		.metallic = metallic,
+		.roughness = roughness
 	});
 }
 
@@ -158,13 +156,7 @@ void RayTracing::Scene::createBottomAS() {
 }
 
 void RayTracing::Scene::createTopAS() {
-	VkTransformMatrixKHR transformMatrix = {
-			1.0f, 0.0f, 0.0f, 0.0f,
-			0.0f, 1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f };
-
 	std::vector<VkAccelerationStructureInstanceKHR> tlasInstances;
-	//tlasInstances.reserve(blasAccel.size());
 	tlasInstances.reserve(instances.size());
 
 	for (uint32_t i = 0; i < instances.size(); i++) {
@@ -180,17 +172,6 @@ void RayTracing::Scene::createTopAS() {
 		};
 		tlasInstances.emplace_back(asInstance);
 	}
-
-	/*for (uint32_t i = 0; i < blasAccel.size(); i++) {
-		VkAccelerationStructureInstanceKHR asInstance{};
-		asInstance.transform = transformMatrix;
-		asInstance.instanceCustomIndex = i;
-		asInstance.accelerationStructureReference = blasAccel[i].address;
-		asInstance.instanceShaderBindingTableRecordOffset = 0;
-		asInstance.mask = 0xFF;
-		asInstance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV,
-			tlasInstances.emplace_back(asInstance);
-	}*/
 
 	VkCommandBuffer cmd = device.beginSingleTimeCommands();
 
@@ -221,8 +202,6 @@ void RayTracing::Scene::createTopAS() {
 		.dstOffset = 0,
 		.size = std::span<VkAccelerationStructureInstanceKHR const>(tlasInstances).size_bytes()
 	};
-
-
 
 	VkCopyBufferInfo2 copyBufferInfo{
 		.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_INFO_2,
@@ -314,28 +293,6 @@ void RayTracing::Scene::createAccelerationStructure(VkAccelerationStructureTypeK
 }
 
 void RayTracing::Scene::createMaterials() {
-	/*std::vector<Material> materials;
-
-	{
-		float roughness = 1.0f;
-		Material material{
-			.color = {0.0f, 1.0f, 0.0},
-			.metallic = 0.f,
-			.roughness = roughness == 0.0f ? ROUGHNESS_ZERO : roughness
-		};
-		materials.push_back(material);
-	}
-	
-	{
-		float roughness = 1.0f;
-		Material material{
-			.color = {0.0f, 0.0f, 1.0f},
-			.metallic = 0.99f,
-			.roughness = roughness == 0.0f ? ROUGHNESS_ZERO : roughness
-		};
-		materials.push_back(material);
-	}*/
-
 	uint64_t size = materials.size() * sizeof(Material);
 
 	materialBuffer = std::make_unique<Core::Buffer>(
@@ -356,22 +313,6 @@ void RayTracing::Scene::createLights() {
 }
 
 void RayTracing::Scene::createSky() {
-
-	/*
-		float skyColor[3];
-		float horizonColor[3];
-		float groundColor[3];
-		float sunDirection[3];
-		float upDirection[3];
-
-		float brightness;
-		float horizonSize;
-		float angularSize;
-		float glowIntensity;
-		float glowSharpness;
-		float glowSize;
-	*/
-
 	SkyInfo info{
 		.skyColor = {0.17f, 0.24f, 0.31f},
 		.horizonColor = {1.f, 0.5f, 0.31f},
@@ -408,13 +349,6 @@ void RayTracing::Scene::createSceneInformation() {
 			.materialId = instances[i].getMaterialId()
 		};
 	}
-
-	/*for (uint32_t i = 0; i < meshes.size(); i++) {
-		instanceInfo[i] = {
-			.vertexAddress = meshes[i].vertexBuffer->getAddress(),
-			.indexAddress = meshes[i].indexBuffer->getAddress()
-		};
-	}*/
 
 	instanceBuffer = std::make_unique<Core::Buffer>(
 		device, sizeof(InstanceInfo) * instanceInfo.size(), VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT
