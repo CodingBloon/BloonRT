@@ -9,6 +9,19 @@
 inline float schlickFresnel(float F0, float VdotH) { return F0 + (1.0f - F0) * pow(1.0f - VdotH, 5.0f); }
 inline float schlickWeight(float f) { float m = clamp(1.0f - f, 0.0f, 1.0f); return m * m * m * m * m; } //pow(m, 5.0f)
 inline float square(float f) { return f * f; }
+void orthonormalBasis(float3 normal, out float3 tangent, out float3 bitangent) {
+    if (normal.z < -0.99998796F) {
+        tangent = float3(0.0F, -1.0F, 0.0F);
+        bitangent = float3(-1.0F, 0.0F, 0.0F);
+        return;
+    }
+
+    float a = 1.0F / (1.0F + normal.z);
+    float b = -normal.x * normal.y * a;
+    tangent = float3(1.0F - normal.x * normal.y * a, b, -normal.x);
+    bitangent = float3(b, 1.0F - normal.y * normal.y * a, -normal.y);
+}
+
 
 float GTR1(float NdotH, float a) {
     if (a >= 1.0f) return ONE_OVER_PI;
@@ -89,6 +102,7 @@ float3 evalSpecular(Material *material, float NdotH, float NdotL, float NdotV, f
     return d * f * g;
 }
 
+//Evaluates the complete disney brdf term
 float3 BRDF(Material *material, float3 N, float3 V, float3 L) {
     float NdotL = dot(N, L);
     float NdotV = dot(N, V);
@@ -99,6 +113,15 @@ float3 BRDF(Material *material, float3 N, float3 V, float3 L) {
     float3 H = normalize(V + L);
     float NdotH = dot(N, H);
     float HdotL = dot(H, L);
+
+    float3 tangent;
+    float3 bitangent;
+
+    orthonormalBasis(N, tangent, bitangent);
+
+    float3 localH = float3(dot(tangent, H), dot(bitangent, H), NdotH);
+    float3 localV = float3(dot(tangent, V), dot(bitangent, V), NdotV);
+    float3 localL = float3(dot(tangent, L), dot(bitangent, L), NdotL);
 
     float3 sheen = evalSheen(material, HdotL);
     float3 clearCoat = evalClearcoat(material, NdotH, NdotL, NdotV, HdotL);

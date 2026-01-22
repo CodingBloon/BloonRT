@@ -33,7 +33,7 @@ struct SurfaceInteraction {
     float pdf;
 }
 
-inline void orthonormalBasis(float3 normal, out float3 tangent, out float3 bitangent) {
+void orthonormalBasis(float3 normal, out float3 tangent, out float3 bitangent) {
     if (normal.z < -0.99998796F) {
         tangent = float3(0.0F, -1.0F, 0.0F);
         bitangent = float3(-1.0F, 0.0F, 0.0F);
