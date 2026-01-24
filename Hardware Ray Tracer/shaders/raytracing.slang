@@ -4,6 +4,7 @@
 #include "light.slang"
 #include "constants.slang"
 #include "disney.slang"
+#include "sampling.slang"
 
 struct UniformBuffer {
     float4x4 viewInverse;
@@ -77,7 +78,6 @@ float3 calculateColor(Material mat, float3 normal, float3 view, float3 worldPos)
         Light light = processLight(sceneInfo.lightBuffer, sceneInfo.lightByteStride, i, worldPos); // get light information
         float3 L = normalize(light.direction);
         float3 color = BRDF(&mat, normal, view, L);
-        //float3 color = pbrMetallicRoughness(mat.color, mat.metallic, mat.roughness, normal, view, L);
         float shadowFactor = testShadow(worldPos, normal, light.direction, false);
         accumulatedColor += color * light.color * light.intensity * shadowFactor;
     }
@@ -109,18 +109,24 @@ void rgenMain() {
     payload.weight = 1;
     payload.depth = 0;
 
-    float3 accumulatedColor = float3(0, 0, 0);
-    /*while (payload.weight < uniformBuffer.depthMax && payload.weight > 0.01) {
-        float prevWeight = payload.weight;
-        TraceRay(topLevelAS, rayFlags, 0xff, 0, 0, 0, ray, payload);
-        accumulatedColor += payload.color * prevWeight;
+    float3 c = float3(0.0f);
 
-        ray.Origin = payload.rayOrigin;
-        ray.Direction = payload.rayDirection;
-    }*/
+    for (uint i = 0; i < SAMPLES; i++) {
+        bool terminate; // this will use russian roulette to determine if a path should be terminated
+        // Paths that missed all objects will be automatically terminated
+        while (payload.depth < uniformBuffer.depthMax) {
+            float prevWeight = payload.weight;
+            TraceRay(topLevelAS, rayFlags, 0xff, 0, 0, 0, ray, payload);
+            c += payload.color;
 
-    TraceRay(topLevelAS, rayFlags, 0xff, 0, 0, 0, ray, payload);
-    float3 color = payload.color;
+            ray.Direction = payload.rayDirection;
+            ray.Origin = payload.rayOrigin;
+        }
+    }
+
+    c /= SAMPLES;
+
+    float3 color = c;
     outImage[int2(launchID)] = float4(color, 1.0);
 }
 
@@ -149,20 +155,18 @@ void rchitMain(inout HitPayload payload, in BuiltInTriangleIntersectionAttribute
     if (dot(N, V) < 0.0)
         N = -N;
 
-    float pdf;
-    float2 random;
     float3 color = calculateColor(material, N, V, worldPos);
-    //float3 rayDir = nextRayDIR(&material, N, V);
-
-    payload.weight *= material.metallic;
+    float4 sampled = sample(&material, N, V, uniformBuffer.frame);
+    payload.depth++;
+    payload.weight = material.metallic;
+    payload.rayDirection = reflect(V, toWorld(sampled.xyz, N));
     payload.rayOrigin = worldPos + N * 0.001;
-    //payload.rayDirection = rayDir;
     payload.color = color;
 }
 
 [shader("miss")]
 void rmissMain(inout HitPayload payload) {
-    payload.color = float3(0.1, 0.1, 0.1);
+    payload.color = float3(0.0);
     payload.depth = MISS_DEPTH;
 }
 

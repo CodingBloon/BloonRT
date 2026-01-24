@@ -119,6 +119,19 @@ void RayTracing::Scene::build() {
 	BUILD("SCENE", 7, 7, "Scene created!");
 }
 
+void RayTracing::Scene::destroyInstance(uint32_t instanceID) {
+	instances[instanceID] = instances[instances.size() - 1];
+	instances.pop_back();
+}
+
+void RayTracing::Scene::unloadModel(uint32_t meshId) {}
+
+void RayTracing::Scene::destroyLight(uint32_t lightId) {
+}
+
+void RayTracing::Scene::destroyMaterial(uint32_t materialId) {
+}
+
 void RayTracing::Scene::primitiveToGeometry(const Mesh& mesh, VkAccelerationStructureGeometryKHR& geometry, VkAccelerationStructureBuildRangeInfoKHR& rangeInfo) {
 	const auto triangeCount = static_cast<uint32_t>(mesh.indices.size() / 3U);
 

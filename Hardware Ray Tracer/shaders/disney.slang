@@ -2,25 +2,15 @@
 
 #include "constants.slang"
 #include "material.slang"
+#include "random.slang"
+#include "shadermath.slang"
 
 #define VECX float3(1.0f, 0.0f, 0.0f)
-#define VECY float3(0.0f, 0.0f, 1.0f)
+#define VECY float3(0.0f, 1.0f, 0.0f)
 
 inline float schlickFresnel(float F0, float VdotH) { return F0 + (1.0f - F0) * pow(1.0f - VdotH, 5.0f); }
 inline float schlickWeight(float f) { float m = clamp(1.0f - f, 0.0f, 1.0f); return m * m * m * m * m; } //pow(m, 5.0f)
 inline float square(float f) { return f * f; }
-void orthonormalBasis(float3 normal, out float3 tangent, out float3 bitangent) {
-    if (normal.z < -0.99998796F) {
-        tangent = float3(0.0F, -1.0F, 0.0F);
-        bitangent = float3(-1.0F, 0.0F, 0.0F);
-        return;
-    }
-
-    float a = 1.0F / (1.0F + normal.z);
-    float b = -normal.x * normal.y * a;
-    tangent = float3(1.0F - normal.x * normal.y * a, b, -normal.x);
-    bitangent = float3(b, 1.0F - normal.y * normal.y * a, -normal.y);
-}
 
 
 float GTR1(float NdotH, float a) {
@@ -66,15 +56,15 @@ float3 evalClearcoat(Material *material, float NdotH, float NdotL, float NdotV, 
 }
 
 float evalDiffuse(Material *material, float3 N, float3 L, float3 V, float3 H) {
-    float FL = schlickWeight(dot(N, L));
-    float FV = schlickWeight(dot(N, V));
+    float FL = schlickWeight(L.z);
+    float FV = schlickWeight(V.z);
 
     float FD90 = 0.5 + 2 * material.roughness * square(dot(H, L));
     float FD = lerp(1.0f, FD90, FL) * lerp(1.0f, FD90, FV);
 
     float Fss90 = square(dot(L, H)) * material.roughness;
     float Fss = lerp(1.0f, Fss90, FL) * lerp(1.0f, Fss90, FV);
-    float ss = 1.25f * (Fss * (1 / (dot(N, L) + dot(N, V)) - 0.5f) + 0.5f);
+    float ss = 1.25f * (Fss * (1 / (L.z + V.z) - 0.5f) + 0.5f);
 
     return lerp(FD, ss, material.subsurface);
 }
@@ -94,10 +84,10 @@ float3 evalSpecular(Material *material, float NdotH, float NdotL, float NdotV, f
     float3 tint = calculateTint(material.color);
     float3 color = lerp(material.specular * 0.08f * lerp(float3(1.0f), tint, material.specularTint), material.color, material.metallic);
 
-    float d = GTR2_anisotropic(NdotH, dot(H, VECX), dot(H, VECY), anisotropicParameters);
+    float d = GTR2_anisotropic(NdotH, H.x, H.y, anisotropicParameters);
     float fresnel = schlickWeight(dot(L, H));
     float3 f = lerp(color, float3(1.0f), fresnel);
-    float g = GGX_anisotropic(NdotL, dot(L, VECX), dot(L, VECY), anisotropicParameters) * GGX_anisotropic(NdotV, dot(V, VECX), dot(V, VECY), anisotropicParameters);
+    float g = GGX_anisotropic(NdotL, L.x, L.y, anisotropicParameters) * GGX_anisotropic(NdotV, V.x, V.y, anisotropicParameters);
 
     return d * f * g;
 }
@@ -114,19 +104,22 @@ float3 BRDF(Material *material, float3 N, float3 V, float3 L) {
     float NdotH = dot(N, H);
     float HdotL = dot(H, L);
 
-    float3 tangent;
+    /*float3 tangent;
     float3 bitangent;
+    orthonormalBasis(N, tangent, bitangent);*/
 
-    orthonormalBasis(N, tangent, bitangent);
+    float3 localH = toLocal(H, N);
+    float3 localV = toLocal(V, N);
+    float3 localL = toLocal(L, N);
 
-    float3 localH = float3(dot(tangent, H), dot(bitangent, H), NdotH);
+    /*float3 localH = float3(dot(tangent, H), dot(bitangent, H), NdotH);
     float3 localV = float3(dot(tangent, V), dot(bitangent, V), NdotV);
-    float3 localL = float3(dot(tangent, L), dot(bitangent, L), NdotL);
+    float3 localL = float3(dot(tangent, L), dot(bitangent, L), NdotL);*/
 
     float3 sheen = evalSheen(material, HdotL);
     float3 clearCoat = evalClearcoat(material, NdotH, NdotL, NdotV, HdotL);
-    float3 specular = evalSpecular(material, NdotH, NdotL, NdotV, H, V, L);
-    float diffuse = evalDiffuse(material, N, L, V, H);
+    float3 specular = evalSpecular(material, NdotH, NdotL, NdotV, localH, localV, localL);
+    float diffuse = evalDiffuse(material, N, localL, localV, localH);
 
     return (ONE_OVER_PI * diffuse * material.color + sheen) * (1 - material.metallic) + specular + clearCoat;
 }

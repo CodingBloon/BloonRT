@@ -19,3 +19,7 @@
 #ifndef ONE_OVER_PI
 #define ONE_OVER_PI 0.3183098861837F
 #endif
+
+#ifndef SAMPLES
+#define SAMPLES 1
+#endif

@@ -4,13 +4,13 @@ RayTracing::RTApp::RTApp() : window({800, 600, "Bloon RT Engine v0.1.2 | DLSS 4"
 	scene.loadModel("models/Plane.obj");
 
 	scene.createMaterial(glm::vec3(1.f, 1.f, 1.f));
-	scene.createMaterial(glm::vec3(0.f, 0.f, 1.f));
+	scene.createMaterial(glm::vec3(1.f, 1.f, 1.f), 1.0f, 0.0f);
 	
 	scene.createLight(glm::vec3(1.f, 0.f, 0.f), glm::vec3(0.0f, 0.0f, 1.0f), 2.0f);
 	scene.createLight(glm::vec3(-1.f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), 2.0f);
 	scene.createLight(glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(1.0f, 0.0f, 0.0f), 2.0f);
 
-	scene.createInstance(0, 0, glm::vec3(0.f, -1.f, 0.f), glm::vec3(), glm::vec3(1.0f, 1.0f, 1.0f));
+	scene.createInstance(0, 1, glm::vec3(0.f, -1.f, 0.f), glm::vec3(), glm::vec3(1.0f, 1.0f, 1.0f));
 	scene.createInstance(0, 0, glm::vec3(0.f, 1.f, 0.f), glm::vec3(), glm::vec3(4.0f, 1.0f, 4.0f));
 
 	scene.build();
@@ -213,8 +213,6 @@ void RayTracing::RTApp::endFrame() {
 
 void RayTracing::RTApp::recreateSwapChain() {
 	auto extent = window.getExtent();
-
-	std::cout << "Extent: " << extent.width << "; " << extent.height << std::endl;
 
 	while (extent.width == 0 || extent.height == 0) {
 		extent = window.getExtent();

@@ -130,6 +130,12 @@ namespace RayTracing {
 		void createMaterial(glm::vec3 color, float metallic = 0.f, float roughness = 1.f, glm::vec3 emissiveColor = glm::vec3(), float emissionStrength = 0.f);
 		void createLight(glm::vec3 position, glm::vec3 color, float intensity);
 		void build();
+
+		void destroyInstance(uint32_t instanceID);
+		void unloadModel(uint32_t meshId);
+		void destroyLight(uint32_t lightId);
+		void destroyMaterial(uint32_t materialId);
+
 		inline AccelerationStructure getTlas() { return tlasAccel; }
 		inline std::unique_ptr<Core::Buffer>& getSceneInfoBuffer() { return sceneInfoBuffer; }
 
