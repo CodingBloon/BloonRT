@@ -1,4 +1,5 @@
 #pragma once
+
 uint hash(uint3 p) {
     const uint4 primes = uint4(2246822519U, 3266489917U, 668265263U, 374761393U);
     uint h32;
@@ -20,11 +21,10 @@ uint pcg(inout uint state) {
 
 float rand(inout uint seed) {
     uint r = pcg(seed);
-    return float(r) * (1.F / float(0xffffffffu));
+    return float(r) * (1.f / float(0xffffffffu));
 }
 
-uint srand(uint seed, uint max) {
-    uint n = pcg(seed);
-
-    return n % max; 
+uint rand(inout uint seed, uint max) {
+    uint r = pcg(seed);
+    return r % (max + 1);
 }

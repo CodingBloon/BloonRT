@@ -132,11 +132,6 @@ void RayTracing::Scene::destroyLight(uint32_t lightId) {
 void RayTracing::Scene::destroyMaterial(uint32_t materialId) {
 }
 
-void RayTracing::Scene::prepareRendering() {
-	std::cout << "Not implemented!" << std::endl;
-	throw std::runtime_error("LBVH not implemented!");
-}
-
 void RayTracing::Scene::primitiveToGeometry(const Mesh& mesh, VkAccelerationStructureGeometryKHR& geometry, VkAccelerationStructureBuildRangeInfoKHR& rangeInfo) {
 	const auto triangeCount = static_cast<uint32_t>(mesh.indices.size() / 3U);
 
@@ -308,6 +303,10 @@ void RayTracing::Scene::createAccelerationStructure(VkAccelerationStructureTypeK
 	accelStructure.address = vkGetAccelerationStructureDeviceAddressKHR(device.getDevice(), &info);
 
 	device.endSingleTimeCommands(cmd);
+}
+
+void RayTracing::Scene::createLightAccelerationStructure() {
+	
 }
 
 void RayTracing::Scene::createMaterials() {

@@ -165,7 +165,7 @@ void RayTracing::Pipeline::createPipeline() {
 	for (VkPipelineShaderStageCreateInfo& info : stages)
 		info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 
-	readShader("shaders/raytracing.slang.spv", &rtShaderModule);
+	readShader("shaders/pathtracing.slang.spv", &rtShaderModule);
 	stages[eRayGen].pName = "rgenMain";
 	stages[eRayGen].stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 	stages[eRayGen].module = rtShaderModule;

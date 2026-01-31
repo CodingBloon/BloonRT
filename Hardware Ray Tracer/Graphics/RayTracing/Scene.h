@@ -52,7 +52,7 @@ namespace RayTracing {
 		float subsurface;
 		float metallic;
 		float roughness;
-		float specular = 0.5f;
+		float specular;
 		float specularTint;
 		float anisotropic;
 		float sheen;
@@ -145,8 +145,6 @@ namespace RayTracing {
 		void destroyLight(uint32_t lightId);
 		void destroyMaterial(uint32_t materialId);
 
-		void prepareRendering();
-
 		inline AccelerationStructure getTlas() { return tlasAccel; }
 		inline std::unique_ptr<Core::Buffer>& getSceneInfoBuffer() { return sceneInfoBuffer; }
 
@@ -163,6 +161,7 @@ namespace RayTracing {
 			VkAccelerationStructureGeometryKHR& asGeometry,
 			VkAccelerationStructureBuildRangeInfoKHR& asBuildRangeInfo,
 			VkBuildAccelerationStructureFlagsKHR flags);
+		void createLightAccelerationStructure();
 
 		void createMaterials();
 		void createLights();

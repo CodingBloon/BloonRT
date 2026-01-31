@@ -1,0 +1,9 @@
+#pragma once
+
+#define ZERO_WEIGHT 1e-5f
+#define ZERO_TRESHOLD 1e-7f
+#define INFINITE 1e32
+#define MISS_DEPTH 1000
+#define PI 3.1415926535897F
+#define TWO_PI 6.2831853071795F
+#define ONE_OVER_PI 0.3183098861837F
